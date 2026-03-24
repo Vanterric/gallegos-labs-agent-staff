@@ -1,0 +1,44 @@
+lab:
+  name: Gallegos Labs
+  mission: "Building highly user-aligned AI products and pushing the frontier of UX in the age of AI"
+
+projects:
+  nimbus:
+    name: Nimbus
+    path: ../Nimbus_POC
+    description: "Voice-first AI companion with persistent memory and structured notes"
+    status: active
+    priority: high
+    stack: [Next.js, MongoDB, OpenAI, Anthropic, ElevenLabs]
+    current_focus: ""
+
+  kanban:
+    name: Gallegos Kanban
+    path: ../gallegos-kanban
+    description: "Project kanban board with agent-friendly REST API"
+    status: active
+    priority: medium
+    stack: [Express, React, MongoDB, Vite]
+    current_focus: "Integration with agent-staff system"
+
+  agent-staff:
+    name: Agent Staff
+    path: .
+    description: "The staff system itself — skills, manifest, and orchestration"
+    status: active
+    priority: high
+    stack: [Claude Code Skills]
+    current_focus: "Initial build"
+
+  labs-site:
+    name: Gallegos Labs Site
+    path: ../gallegos-labs-site
+    description: "Public website for Gallegos Labs"
+    status: active
+    priority: low
+    stack: []
+    current_focus: ""
+
+kanban:
+  api_url: "http://localhost:3001"
+  default_columns: [Backlog, To Do, In Progress, Review, Done]
