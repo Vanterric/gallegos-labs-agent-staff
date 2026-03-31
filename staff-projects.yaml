@@ -10,7 +10,7 @@ projects:
     status: active
     priority: high
     stack: [Next.js, MongoDB, OpenAI, Anthropic, ElevenLabs]
-    current_focus: ""
+    current_focus: "MVP launch prep — token caps, bug fixes, pricing model, landing page, security review, QoL updates"
 
   kanban:
     name: Gallegos Kanban
@@ -30,15 +30,38 @@ projects:
     stack: [Claude Code Skills]
     current_focus: "Initial build"
 
+  autonomous-engine:
+    name: Autonomous Engine
+    path: .
+    description: "Self-building autonomous software engine — OpenClaw pipeline skills and orchestration"
+    status: active
+    priority: high
+    stack: [OpenClaw, Claude Code Skills, Playwright MCP]
+    current_focus: "Phase 2 — OpenClaw bridge and communication protocol"
+    kanban_board: "Autonomous Engine"
+
+  thought-leadership:
+    name: Thought Leadership
+    path: ../../AI Thoughts/Articles
+    description: "LinkedIn and Gallegos Labs site articles — AI thought leadership pieces"
+    status: active
+    priority: medium
+    stack: []
+    current_focus: ""
+
   labs-site:
     name: Gallegos Labs Site
     path: ../gallegos-labs-site
     description: "Public website for Gallegos Labs"
     status: active
     priority: low
-    stack: []
+    stack: [Vite, React, Express, MongoDB, Lexical]
+    dev_url: "http://localhost:9090"
+    dev_command: "npm run dev"
+    startup: always
     current_focus: ""
 
 kanban:
-  api_url: "http://localhost:3001"
+  api_url: "https://gallegos-kanban-api.onrender.com"
+  local_api_url: "http://localhost:3002"
   default_columns: [Backlog, To Do, In Progress, Review, Done]
