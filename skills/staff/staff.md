@@ -41,9 +41,43 @@ If bootstrap is needed (no `.env` or missing token):
 ls -d {{project_path}} 2>/dev/null || echo "WARNING: {{project_name}} path not found: {{project_path}}"
 ```
 
-### Step 3: Verify Kanban is Running
+### Step 3: Start Lab Infrastructure
 
-Even after bootstrap, always verify the kanban API is reachable. If it's down, restart it following `skills/staff/kanban.md` startup instructions.
+Start all required services for the lab. Run these checks in parallel:
+
+#### 3a. Kanban API (http://localhost:3002)
+Verify the kanban API is reachable. If it's down, restart it following `skills/staff/kanban.md` startup instructions.
+
+#### 3b. Gallegos Labs Site (http://localhost:9090)
+Check if the labs site dev server is running:
+```bash
+curl -s -o /dev/null -w "%{http_code}" http://localhost:9090 2>/dev/null || echo "UNREACHABLE"
+```
+
+If it's down:
+1. Ensure Docker Desktop is running (needed for MongoDB):
+```bash
+powershell -c "Start-Process 'C:\Program Files\Docker\Docker\Docker Desktop.exe' -WindowStyle Hidden" 2>/dev/null
+```
+Wait for Docker daemon readiness if needed (poll `docker info` up to 30 seconds).
+
+2. Start the dev server in the background:
+```bash
+cd {{labs-site_path}} && npm run dev
+```
+Use the Bash tool with `run_in_background: true`. The site runs Vite (client on port 9090) + Express (server on port 3003) via `concurrently`.
+
+3. Verify it's up after a few seconds, then open in browser:
+```bash
+powershell -c "Start-Process 'http://localhost:9090'"
+```
+
+#### 3c. Nimbus Hub (http://localhost:3000) — optional
+Only start if the President requests Nimbus work or if it's already running. Check with:
+```bash
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 2>/dev/null || echo "UNREACHABLE"
+```
+If needed, start from `{{nimbus_path}}/apps/nimbus-hub` with `npm run dev` in the background.
 
 ### Step 4: Generate Briefing
 
@@ -69,6 +103,9 @@ The President may say things like:
 - "Shift Nimbus focus to Z" → update `current_focus` in `staff-projects.yaml`
 - "Merge that branch" → execute merge, move card to Done
 - "Push to production" → only after explicit approval
+- "Tell OpenClaw to work on X" → send work:assign via `skills/staff/openclaw.md`
+- "What's OpenClaw doing?" → send status:request via `skills/staff/openclaw.md`
+- "Pause/resume OpenClaw" → send work:pause or work:resume
 
 ### Managing Active Agents
 - Track all dispatched background agents
@@ -97,6 +134,7 @@ When you need to perform specific operations, read and follow the corresponding 
 | Generate a briefing | `skills/staff/briefing.md` |
 | Research prior art for a feature | `skills/staff/research.md` |
 | Dispatch agents and manage lifecycle | `skills/staff/dispatch.md` |
+| Communicate with OpenClaw (send work, get status) | `skills/staff/openclaw.md` |
 
 Read the sub-skill file when you need it — don't try to memorize or summarize the instructions. The sub-skills contain exact procedures and command patterns.
 
