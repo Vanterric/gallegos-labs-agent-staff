@@ -135,14 +135,20 @@ Action: Fix the issues and resubmit for review.
 
 ## Reading the Queue on Startup
 
-When `/staff` is invoked, check if OpenClaw has queued messages:
+When `/staff` is invoked, check if OpenClaw has queued messages and verify the autonomous pipeline cron is healthy:
 
-1. Send a `status:request` to OpenClaw
-2. Parse the response for any queued messages
-3. If OpenClaw is unreachable (connection refused), note it in the briefing as "OpenClaw Mac: offline"
-4. Present any queued messages in the briefing under "Agent Results"
+1. Run `openclaw cron list`
+2. Verify a cron named `autonomous-pipeline` exists
+3. Verify it has a schedule and a recent last-run time
+4. If the cron is missing or its last run is older than 15 minutes, flag it in the briefing under `Decisions Needed`
+5. Send a `status:request` to OpenClaw
+6. Parse the response for any queued messages
+7. If OpenClaw is unreachable (connection refused), note it in the briefing as `OpenClaw Mac: offline`
+8. Present any queued messages in the briefing under `Agent Results`
 
 ```bash
+CRON_STATUS=$(openclaw cron list 2>/dev/null || echo "CRON_CHECK_FAILED")
+
 RESPONSE=$(curl -s --max-time 30 http://192.168.1.173:18789/v1/chat/completions \
   -H "Authorization: Bearer {{token}}" \
   -H "Content-Type: application/json" \
@@ -157,6 +163,16 @@ else
   echo "$RESPONSE" | python -c "import sys,json; print(json.load(sys.stdin)['choices'][0]['message']['content'])" 2>/dev/null || echo "PARSE_ERROR"
 fi
 ```
+
+### Cron Health Rules
+
+Treat the autonomous pipeline as healthy only if all of the following are true:
+
+- `autonomous-pipeline` appears in `openclaw cron list`
+- it has a real schedule (not blank)
+- its `Last` run is not older than 15 minutes
+
+If any of those checks fail, surface it clearly in the briefing as an operational issue that needs attention.
 
 ## Handling OpenClaw Responses
 
