@@ -71,7 +71,9 @@ git commit -m "research: log finding — [category] from [source] re: [short des
 
 ### Step 3: Draft Opportunistic Outreach
 
-For each finding flagged with a beta tester candidate:
+**Staleness check:** Before drafting outreach, check the post age. Read `max_post_age_days_for_outreach` from `config/subreddits.yaml` (default 90 days). If the post is older than this threshold, still log the finding (it's valid research data) but do NOT draft outreach — the thread is too stale for engagement.
+
+For each finding flagged with a beta tester candidate (and post is within the staleness threshold):
 
 1. Create an outreach draft at `outreach/drafts/YYYY-MM-DD-<channel>-<slug>.md`:
 
