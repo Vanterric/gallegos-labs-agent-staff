@@ -32,6 +32,24 @@ cd {{project_path}} && git status --short 2>/dev/null || echo "Not a git repo"
 
 Follow the `staff:kanban` instructions to read board state for each project. Use the kanban skill's board reading and formatting instructions.
 
+### OpenClaw Queue
+
+Pull queued messages from the OpenClaw Mac mini. Follow `skills/staff/openclaw.md` for the procedure:
+
+1. Send a `status:request` to OpenClaw via the Gateway API
+2. If OpenClaw responds, parse the response for:
+   - Current task status
+   - Queued messages (queue.md contents)
+   - Any blockers or questions
+3. If OpenClaw is unreachable (connection refused/timeout), note "OpenClaw Mac: offline" in the briefing
+4. If there are queued messages, categorize them:
+   - `review:ready` → present under "Agent Results" with card details and demo link
+   - `blocked` → present under "Decisions Needed"
+   - `error` → present under "Decisions Needed" flagged as infrastructure issue
+   - `question` → present under "Decisions Needed" with the question
+   - `status:report` → summarize under "Agent Results"
+5. After processing, tell OpenClaw to clear the queue
+
 ## Briefing Format
 
 Present the briefing in this exact structure:
@@ -51,7 +69,21 @@ For each active project:
 **Working tree:** [clean / N uncommitted changes]
 **Board:** [N cards in Backlog, N in To Do, N in Progress, N in Review, N in Done]
 
-## 2. Agent Results
+## 2. OpenClaw Status
+
+**Status:** [online/offline]
+**Current task:** [what it's working on, or "idle"]
+**Pipeline:** [N cards completed since last briefing, N in Review awaiting approval]
+
+[If there are queued messages from OpenClaw, summarize each:]
+- **[review:ready]** [Card title] — ready for review. Branch: [x], Tests: [x passed], Demo: [link]
+- **[blocked]** [Card title] — [blocker summary]
+- **[question]** [Card title] — [question]
+
+[If no queue messages:]
+No pending messages from OpenClaw.
+
+## 3. Agent Results
 
 [If any background agents completed work during this session, summarize:]
 - **[Task name]**: [outcome — success/failure, what was done, what needs review]
@@ -59,14 +91,14 @@ For each active project:
 [If no agents have run yet:]
 No agent activity yet this session.
 
-## 3. Research Context
+## 4. Research Context
 
 [If any research has been conducted, summarize key findings relevant to current work]
 
 [If no research yet:]
 No active research briefs.
 
-## 4. Recommended Next Actions
+## 5. Recommended Next Actions
 
 Based on project priorities and current state, I recommend:
 
@@ -79,7 +111,7 @@ Prioritize based on:
 - Cards stuck in "In Progress" or "Review" need attention
 - Projects with dirty working trees may have unfinished work
 
-## 5. Decisions Needed
+## 6. Decisions Needed
 
 [List anything that requires President approval to unblock:]
 - [Decision needed] — [context]

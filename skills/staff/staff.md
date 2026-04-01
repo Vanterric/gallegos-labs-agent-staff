@@ -79,11 +79,19 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 2>/dev/null || echo
 ```
 If needed, start from `{{nimbus_path}}/apps/nimbus-hub` with `npm run dev` in the background.
 
-### Step 4: Generate Briefing
+### Step 4: Pull OpenClaw Queue
 
-Follow `skills/staff/briefing.md` to gather git state and kanban state, then present the morning briefing.
+Follow `skills/staff/openclaw.md` to check in with OpenClaw on the Mac mini:
+1. Send a `status:request` via the Gateway API
+2. If OpenClaw responds, collect its status and any queued messages
+3. If OpenClaw is offline, note it for the briefing
+This data feeds into the briefing.
 
-### Step 5: Enter CoS Mode
+### Step 5: Generate Briefing
+
+Follow `skills/staff/briefing.md` to gather git state, kanban state, and OpenClaw status, then present the morning briefing.
+
+### Step 6: Enter CoS Mode
 
 After the briefing, prompt the President for direction:
 
