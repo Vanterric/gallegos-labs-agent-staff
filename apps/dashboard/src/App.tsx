@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import InboxView from "./components/InboxView";
 import ResearchView from "./components/ResearchView";
@@ -6,10 +6,11 @@ import SoftwareView from "./components/SoftwareView";
 import ChatView from "./components/ChatView";
 import OpenClawLogView from "./components/OpenClawLogView";
 import RightPanel from "./components/RightPanel";
-import type { NavSection, RightPanelTab } from "./lib/types";
+import { usePending } from "./hooks/usePending";
+import { fetchFileContent } from "./lib/api";
+import type { NavSection, PendingItem, RightPanelTab } from "./lib/types";
 
-const views: Record<NavSection, () => JSX.Element> = {
-  inbox: InboxView,
+const staticViews: Record<Exclude<NavSection, "inbox">, () => JSX.Element> = {
   research: ResearchView,
   software: SoftwareView,
   chat: ChatView,
@@ -19,19 +20,70 @@ const views: Record<NavSection, () => JSX.Element> = {
 export default function App() {
   const [activeNav, setActiveNav] = useState<NavSection>("inbox");
   const [activeTab, setActiveTab] = useState<RightPanelTab>("md-viewer");
+  const [selectedItem, setSelectedItem] = useState<PendingItem | null>(null);
+  const [selectedContent, setSelectedContent] = useState<string | null>(null);
+  const [isContentLoading, setIsContentLoading] = useState(false);
+  const { items, isLoading, error, reload } = usePending();
 
-  const View = views[activeNav];
+  useEffect(() => {
+    if (!selectedItem && items.length > 0) {
+      setSelectedItem(items[0]);
+    }
+  }, [items, selectedItem]);
+
+  useEffect(() => {
+    const loadContent = async () => {
+      if (!selectedItem?.filePath) {
+        setSelectedContent(selectedItem?.content ?? null);
+        return;
+      }
+
+      try {
+        setIsContentLoading(true);
+        const data = await fetchFileContent(selectedItem.filePath);
+        setSelectedContent(data.content);
+      } catch (err) {
+        setSelectedContent(err instanceof Error ? err.message : "Failed to load content");
+      } finally {
+        setIsContentLoading(false);
+      }
+    };
+
+    void loadContent();
+  }, [selectedItem]);
+
+  const handleSelectItem = (item: PendingItem) => {
+    setSelectedItem(item);
+    setActiveNav("inbox");
+    setActiveTab("md-viewer");
+  };
+
+  const View = activeNav === "inbox" ? null : staticViews[activeNav];
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden">
+    <div className="flex h-screen w-screen overflow-hidden text-nimbus-text-primary">
       <Sidebar active={activeNav} onNavigate={setActiveNav} />
-
-      {/* Main content */}
       <main className="flex-1 overflow-auto bg-nimbus-bg">
-        <View />
+        {activeNav === "inbox" ? (
+          <InboxView
+            items={items}
+            isLoading={isLoading}
+            error={error}
+            selectedItemId={selectedItem?.id ?? null}
+            onSelectItem={handleSelectItem}
+          />
+        ) : View ? (
+          <View />
+        ) : null}
       </main>
-
-      <RightPanel activeTab={activeTab} onTabChange={setActiveTab} />
+      <RightPanel
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        selectedItem={selectedItem}
+        selectedContent={selectedContent}
+        isContentLoading={isContentLoading}
+        onApproved={() => void reload()}
+      />
     </div>
   );
 }
