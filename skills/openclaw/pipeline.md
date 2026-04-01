@@ -98,11 +98,15 @@ Follow `skills/openclaw/demo.md` to record a demo.
 - Save the video artifact
 - Link it in the card description
 
-### Step 7: Move to Review
+### Step 7: Open PR and Move to Review
 
-Update the card description with the full work summary:
+Before a card enters Review, create a GitHub Pull Request for the work branch.
 
-```markdown
+Use the GitHub App installation token flow and create the PR via the helper script:
+
+```bash
+/Users/derrick/openclaw-staff/github-refresh-remote.sh /absolute/path/to/repo OWNER/REPO
+cat > /tmp/pr-body.md <<'EOF'
 ## Task
 [Original task description]
 
@@ -119,8 +123,34 @@ Update the card description with the full work summary:
 ## Demo
 - **Video:** artifacts/demos/YYYY-MM-DD-<card-slug>.mp4
 
+## Kanban
+- **Card ID:** [kanban card id]
+EOF
+/absolute/path/to/staff-repo/scripts/github-create-pr.sh OWNER/REPO feature/<card-slug> master "[card title]" /tmp/pr-body.md
+```
+
+Capture the PR URL from the API response, then update the kanban card description with the full work summary:
+
+```markdown
+## Task
+[Original task description]
+
+## Implementation
+- **Branch:** feature/<card-slug>
+- **Plan:** docs/plans/YYYY-MM-DD-<card-slug>.md
+- **Commits:** [list of commit hashes with messages]
+- **Pull Request:** https://github.com/OWNER/REPO/pull/123
+
+## Testing
+- **Test results:** X passed, 0 failed
+- **Playwright tests:** [list of test files created]
+- **Visual baselines:** [created/updated]
+
+## Demo
+- **Video:** artifacts/demos/YYYY-MM-DD-<card-slug>.mp4
+
 ## Status
-Complete — awaiting human review.
+Complete — PR opened and awaiting human review.
 ```
 
 Move the card to "Review":
@@ -140,7 +170,7 @@ curl -s -X POST "$KANBAN_API/api/cards/move" \
   }'
 ```
 
-Write a `review:ready` message to the queue (see `skills/openclaw/queue.md`).
+Write a `review:ready` message to the queue (see `skills/openclaw/queue.md`) and include the PR link in the Summary field.
 
 ### Step 8: Loop
 
