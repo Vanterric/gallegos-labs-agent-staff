@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --nimbus-bg: #0a0e1a;
+  --nimbus-bg-secondary: #111827;
+  --nimbus-bg-tertiary: #1e293b;
+  --nimbus-surface-elevated: #080c16;
+  --nimbus-text-primary: #f1f5f9;
+  --nimbus-text-muted: #94a3b8;
+  --nimbus-text-subtle: #64748b;
+  --nimbus-accent: #3b82f6;
+  --nimbus-accent-cyan: #06b6d4;
+  --nimbus-border: #1e293b;
+  --nimbus-border-accent: rgba(59, 130, 246, 0.3);
+  --nimbus-success: #10b981;
+  --nimbus-warning: #f59e0b;
+  --nimbus-error: #ef4444;
+  --nimbus-violet: #8b5cf6;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--nimbus-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--nimbus-bg-tertiary);
+  border-radius: 3px;
+}
