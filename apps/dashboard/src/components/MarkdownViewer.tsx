@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { approveResearchPlan } from "../lib/api";
@@ -37,12 +37,23 @@ function parseFrontmatter(markdown: string): { frontmatter: Record<string, strin
 }
 
 export default function MarkdownViewer({ item, content, isLoading, onApproved }: MarkdownViewerProps) {
+  const [approveState, setApproveState] = useState<"idle" | "submitting" | "done" | "error">("idle");
+  const [approveError, setApproveError] = useState<string | null>(null);
   const parsed = useMemo(() => parseFrontmatter(content ?? ""), [content]);
 
   const handleApprove = async () => {
     if (!item?.cardId) return;
-    await approveResearchPlan(item.cardId);
-    onApproved?.();
+
+    try {
+      setApproveState("submitting");
+      setApproveError(null);
+      await approveResearchPlan(item.cardId);
+      setApproveState("done");
+      onApproved?.();
+    } catch (error) {
+      setApproveState("error");
+      setApproveError(error instanceof Error ? error.message : "Approval failed");
+    }
   };
 
   if (!item) {
@@ -78,12 +89,20 @@ export default function MarkdownViewer({ item, content, isLoading, onApproved }:
       </article>
 
       {item.type === "research-plan" && item.cardId && (
-        <button
-          onClick={() => void handleApprove()}
-          className="rounded-btn bg-nimbus-accent px-3 py-2 text-sm font-medium text-white hover:opacity-90"
-        >
-          Approve Research Plan
-        </button>
+        <div className="space-y-2">
+          <button
+            onClick={() => void handleApprove()}
+            disabled={approveState === "submitting" || approveState === "done"}
+            className="rounded-btn bg-nimbus-accent px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {approveState === "submitting"
+              ? "Approving…"
+              : approveState === "done"
+                ? "Approved"
+                : "Approve Research Plan"}
+          </button>
+          {approveError && <p className="text-sm text-nimbus-error">{approveError}</p>}
+        </div>
       )}
     </div>
   );

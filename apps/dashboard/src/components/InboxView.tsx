@@ -20,6 +20,20 @@ const badgeLabels: Record<PendingItem["type"], string> = {
   "software-review": "Software",
 };
 
+function formatRelativeTime(value: string) {
+  const timestamp = new Date(value).getTime();
+  const diffMs = Date.now() - timestamp;
+  const minutes = Math.max(1, Math.round(diffMs / 60000));
+
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
+}
+
 export default function InboxView({
   items,
   isLoading,
@@ -71,8 +85,9 @@ export default function InboxView({
                   <span className="text-xs text-nimbus-text-subtle">{item.context}</span>
                 </div>
                 <div className="font-medium text-nimbus-text-primary">{item.title}</div>
-                <div className="mt-2 text-sm text-nimbus-text-muted">
-                  {item.source} • {new Date(item.createdAt).toLocaleString()}
+                <div className="mt-2 flex items-center justify-between gap-3 text-sm text-nimbus-text-muted">
+                  <span>{item.source}</span>
+                  <span className="shrink-0">{formatRelativeTime(item.createdAt)}</span>
                 </div>
               </button>
             );
