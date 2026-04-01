@@ -1,14 +1,25 @@
-import type { RightPanelTab } from "../lib/types";
+import MarkdownViewer from "./MarkdownViewer";
+import type { PendingItem, RightPanelTab } from "../lib/types";
 
 interface RightPanelProps {
   activeTab: RightPanelTab;
   onTabChange: (tab: RightPanelTab) => void;
+  selectedItem: PendingItem | null;
+  selectedContent: string | null;
+  isContentLoading: boolean;
+  onApproved?: () => void;
 }
 
-export default function RightPanel({ activeTab, onTabChange }: RightPanelProps) {
+export default function RightPanel({
+  activeTab,
+  onTabChange,
+  selectedItem,
+  selectedContent,
+  isContentLoading,
+  onApproved,
+}: RightPanelProps) {
   return (
-    <aside className="w-80 h-full flex flex-col bg-nimbus-surface-elevated border-l border-nimbus-border shrink-0">
-      {/* Tab bar */}
+    <aside className="w-96 h-full flex flex-col bg-nimbus-surface-elevated border-l border-nimbus-border shrink-0">
       <div className="flex border-b border-nimbus-border">
         <button
           onClick={() => onTabChange("md-viewer")}
@@ -32,15 +43,17 @@ export default function RightPanel({ activeTab, onTabChange }: RightPanelProps) 
         </button>
       </div>
 
-      {/* Tab content */}
       <div className="flex-1 p-4 overflow-auto">
         {activeTab === "md-viewer" ? (
-          <p className="text-nimbus-text-muted text-sm">
-            Select an item to view its markdown content.
-          </p>
+          <MarkdownViewer
+            item={selectedItem}
+            content={selectedContent}
+            isLoading={isContentLoading}
+            onApproved={onApproved}
+          />
         ) : (
           <p className="text-nimbus-text-muted text-sm">
-            Visual playground — HTML mockups will render here.
+            Visual playground — HTML mockups will render here in Phase 4.
           </p>
         )}
       </div>
