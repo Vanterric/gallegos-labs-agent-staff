@@ -40,6 +40,16 @@ projects:
     current_focus: "Phase 2 — OpenClaw bridge and communication protocol"
     kanban_board: "Autonomous Engine"
 
+  research-pipeline:
+    name: Research Pipeline
+    path: ../gallegos-labs-research
+    description: "Autonomous UX research — continuous Reddit monitoring, directed campaigns, synthesis"
+    status: active
+    priority: high
+    stack: [OpenClaw, Reddit API, Playwright MCP]
+    current_focus: "Phase 1 — Foundation setup"
+    kanban_board: "Research Pipeline"
+
   thought-leadership:
     name: Thought Leadership
     path: ../../AI Thoughts/Articles
