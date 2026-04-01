@@ -36,7 +36,7 @@ Each message is a markdown section delimited by `---`. Messages are appended to 
 | Plan | Conditional | Path to implementation plan. Required for `review:ready`. |
 | Tests | Conditional | Test summary. Required for `review:ready`. |
 | Demo | Conditional | Path to demo video. Required for `review:ready`. |
-| Summary | Yes | Human-readable description of what happened |
+| Summary | Yes | Human-readable description of what happened. For `review:ready`, include the PR link if one exists. |
 
 ## Message Types
 

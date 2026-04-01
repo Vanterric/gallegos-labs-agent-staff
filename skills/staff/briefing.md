@@ -76,7 +76,7 @@ For each active project:
 **Pipeline:** [N cards completed since last briefing, N in Review awaiting approval]
 
 [If there are queued messages from OpenClaw, summarize each:]
-- **[review:ready]** [Card title] — ready for review. Branch: [x], Tests: [x passed], Demo: [link]
+- **[review:ready]** [Card title] — ready for review. Branch: [x], PR: [link], Tests: [x passed], Demo: [link]
 - **[blocked]** [Card title] — [blocker summary]
 - **[question]** [Card title] — [question]
 
