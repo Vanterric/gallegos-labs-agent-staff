@@ -36,19 +36,22 @@ Follow the `staff:kanban` instructions to read board state for each project. Use
 
 Pull queued messages from the OpenClaw Mac mini. Follow `skills/staff/openclaw.md` for the procedure:
 
-1. Send a `status:request` to OpenClaw via the Gateway API
-2. If OpenClaw responds, parse the response for:
+1. Run `openclaw cron list`
+2. Verify the `autonomous-pipeline` cron exists, is scheduled, and has a last-run time within 15 minutes
+3. If the cron is missing or stale, note it in the briefing under `Decisions Needed`
+4. Send a `status:request` to OpenClaw via the Gateway API
+5. If OpenClaw responds, parse the response for:
    - Current task status
    - Queued messages (queue.md contents)
    - Any blockers or questions
-3. If OpenClaw is unreachable (connection refused/timeout), note "OpenClaw Mac: offline" in the briefing
-4. If there are queued messages, categorize them:
-   - `review:ready` → present under "Agent Results" with card details and demo link
+6. If OpenClaw is unreachable (connection refused/timeout), note `OpenClaw Mac: offline` in the briefing
+7. If there are queued messages, categorize them:
+   - `review:ready` → present under "Agent Results" with card details, PR link, and demo link when available
    - `blocked` → present under "Decisions Needed"
    - `error` → present under "Decisions Needed" flagged as infrastructure issue
    - `question` → present under "Decisions Needed" with the question
    - `status:report` → summarize under "Agent Results"
-5. After processing, tell OpenClaw to clear the queue
+8. After processing, tell OpenClaw to clear the queue
 
 ## Briefing Format
 
@@ -76,7 +79,7 @@ For each active project:
 **Pipeline:** [N cards completed since last briefing, N in Review awaiting approval]
 
 [If there are queued messages from OpenClaw, summarize each:]
-- **[review:ready]** [Card title] — ready for review. Branch: [x], Tests: [x passed], Demo: [link]
+- **[review:ready]** [Card title] — ready for review. Branch: [x], PR: [link], Tests: [x passed], Demo: [link]
 - **[blocked]** [Card title] — [blocker summary]
 - **[question]** [Card title] — [question]
 
