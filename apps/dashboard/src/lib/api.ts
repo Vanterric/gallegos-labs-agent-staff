@@ -5,7 +5,10 @@ import type {
   DismissResponse,
   FileContentResponse,
   InsightOptionsResponse,
+  OpenClawLogResponse,
   PendingResponse,
+  PlaygroundEventsResponse,
+  PlaygroundPayloadResponse,
 } from "./types";
 
 export async function fetchPending(): Promise<PendingResponse> {
@@ -60,6 +63,33 @@ export async function fetchInsightOptions(): Promise<InsightOptionsResponse> {
   const res = await fetch("/api/insights/options");
   if (!res.ok) {
     throw new Error(`Failed to fetch insight options: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function fetchOpenClawLog(): Promise<OpenClawLogResponse> {
+  const res = await fetch("/api/openclaw/log");
+  if (!res.ok) {
+    throw new Error(`Failed to fetch OpenClaw log: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function fetchPlaygroundPayload(): Promise<PlaygroundPayloadResponse> {
+  const res = await fetch("/api/playground");
+  if (!res.ok) {
+    throw new Error(`Failed to fetch playground payload: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function fetchPlaygroundEvents(): Promise<PlaygroundEventsResponse> {
+  const res = await fetch("/api/playground/events");
+  if (!res.ok) {
+    throw new Error(`Failed to fetch playground events: ${res.status}`);
   }
 
   return res.json();

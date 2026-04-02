@@ -1,4 +1,5 @@
 import MarkdownViewer from "./MarkdownViewer";
+import VisualPlayground from "./VisualPlayground";
 import type { PendingItem, RightPanelTab } from "../lib/types";
 
 interface RightPanelProps {
@@ -21,13 +22,13 @@ export default function RightPanel({
   onDismissed,
 }: RightPanelProps) {
   return (
-    <aside className="w-96 h-full flex flex-col bg-nimbus-surface-elevated border-l border-nimbus-border shrink-0">
+    <aside className="flex h-full w-96 shrink-0 flex-col border-l border-nimbus-border bg-nimbus-surface-elevated">
       <div className="flex border-b border-nimbus-border">
         <button
           onClick={() => onTabChange("md-viewer")}
           className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
             activeTab === "md-viewer"
-              ? "text-nimbus-accent border-b-2 border-nimbus-accent"
+              ? "border-b-2 border-nimbus-accent text-nimbus-accent"
               : "text-nimbus-text-muted hover:text-nimbus-text-primary"
           }`}
         >
@@ -37,7 +38,7 @@ export default function RightPanel({
           onClick={() => onTabChange("visual-playground")}
           className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
             activeTab === "visual-playground"
-              ? "text-nimbus-accent border-b-2 border-nimbus-accent"
+              ? "border-b-2 border-nimbus-accent text-nimbus-accent"
               : "text-nimbus-text-muted hover:text-nimbus-text-primary"
           }`}
         >
@@ -45,7 +46,7 @@ export default function RightPanel({
         </button>
       </div>
 
-      <div className="flex-1 p-4 overflow-auto">
+      <div className="flex-1 overflow-auto p-4">
         {activeTab === "md-viewer" ? (
           <MarkdownViewer
             item={selectedItem}
@@ -55,9 +56,7 @@ export default function RightPanel({
             onDismissed={onDismissed}
           />
         ) : (
-          <p className="text-nimbus-text-muted text-sm">
-            Visual playground — HTML mockups will render here in Phase 4.
-          </p>
+          <VisualPlayground />
         )}
       </div>
     </aside>

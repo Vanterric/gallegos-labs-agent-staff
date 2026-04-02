@@ -55,6 +55,34 @@ export interface ChatHistoryResponse {
   messages: ChatMessage[];
 }
 
+export interface OpenClawLogEntry {
+  timestamp: string;
+  direction: string;
+  message: string;
+  response?: string;
+}
+
+export interface OpenClawLogResponse {
+  entries: OpenClawLogEntry[];
+}
+
+export interface PlaygroundPayloadResponse {
+  html: string;
+  filename?: string;
+  updatedAt?: string;
+}
+
+export interface PlaygroundEvent {
+  type: string;
+  choice?: string;
+  text?: string;
+  timestamp: number;
+}
+
+export interface PlaygroundEventsResponse {
+  events: PlaygroundEvent[];
+}
+
 export interface InsightProductOption {
   key: string;
   name: string;

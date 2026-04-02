@@ -46,7 +46,7 @@ export default function ChatView({ initialChannel = "staff", forceReadOnly = fal
       try {
         const data = await fetchChatHistory();
         if (!cancelled) {
-          setMessages(data.messages);
+          setMessages(data.messages.filter((message) => message.channel === "staff"));
         }
       } catch (err) {
         if (!cancelled) {
@@ -82,7 +82,7 @@ export default function ChatView({ initialChannel = "staff", forceReadOnly = fal
     ws.addEventListener("message", (event) => {
       try {
         const message = JSON.parse(event.data) as ChatMessage;
-        if (message.type !== "message") return;
+        if (message.type !== "message" || message.channel !== "staff") return;
         setMessages((current) => [...current, message]);
       } catch {
         setError("Received malformed chat event");
@@ -97,16 +97,16 @@ export default function ChatView({ initialChannel = "staff", forceReadOnly = fal
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, channel]);
+  }, [messages]);
 
   useEffect(() => {
     setChannel(initialChannel);
   }, [initialChannel]);
 
-  const visibleMessages = useMemo(
-    () => messages.filter((message) => message.channel === channel),
-    [messages, channel],
-  );
+  const visibleMessages = useMemo(() => {
+    if (channel === "openclaw") return [];
+    return messages;
+  }, [messages, channel]);
 
   const readOnly = forceReadOnly || channel === "openclaw";
 
@@ -152,12 +152,12 @@ export default function ChatView({ initialChannel = "staff", forceReadOnly = fal
 
       <div className="flex-1 space-y-3 overflow-auto rounded-xl border border-nimbus-border bg-nimbus-surface-elevated p-4">
         {error ? <p className="text-sm text-nimbus-error">{error}</p> : null}
-        {visibleMessages.length === 0 ? (
+        {channel === "openclaw" ? (
           <p className="text-sm text-nimbus-text-muted">
-            {readOnly
-              ? "No OpenClaw log entries yet."
-              : "No chat messages yet. Send the first one."}
+            OpenClaw log now has its own dedicated view in the sidebar.
           </p>
+        ) : visibleMessages.length === 0 ? (
+          <p className="text-sm text-nimbus-text-muted">No chat messages yet. Send the first one.</p>
         ) : null}
 
         {visibleMessages.map((message, index) => (
