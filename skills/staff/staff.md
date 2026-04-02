@@ -148,17 +148,17 @@ When the dashboard chat watcher background task completes (you receive a task no
 1. Parse the JSON response — it contains `{ messages: ChatMessage[] }` from the President
 2. Surface the message content in the conversation naturally
 3. Respond to the President's message
-4. Send your response back to the dashboard:
+4. Send your reply AND restart the watcher in a single step — always call both together:
 ```bash
 curl -s -X POST http://localhost:5174/api/chat/reply \
   -H "Content-Type: application/json" \
   -d '{"content":"{{your_response}}","channel":"staff"}'
 ```
-5. Restart the watcher with an updated `since` timestamp (use the latest message's timestamp):
+Then immediately (in the same response, as a parallel Bash call with `run_in_background: true`):
 ```bash
 SINCE="{{latest_message_timestamp}}" && while true; do RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" "http://localhost:5174/api/chat/wait?since=$SINCE&timeout=60"); HTTP_STATUS=$(echo "$RESPONSE" | tail -1 | sed 's/HTTP_STATUS://'); if [ "$HTTP_STATUS" = "200" ]; then echo "$RESPONSE" | sed '$d'; exit 0; fi; done
 ```
-Use the Bash tool with `run_in_background: true`.
+The reply and watcher restart are one atomic action — never reply without restarting the watcher.
 
 ### Keeping Kanban Updated
 - All work should be reflected on the kanban board
