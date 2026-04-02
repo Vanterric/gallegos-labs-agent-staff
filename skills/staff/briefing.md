@@ -94,14 +94,25 @@ No pending messages from OpenClaw.
 [If no agents have run yet:]
 No agent activity yet this session.
 
-## 4. Research Context
+## 4. User Feedback
+
+[If new feedback was returned by `bash scripts/check-feedback.sh`:]
+
+| # | Category | Title | Summary | From | Date |
+|---|----------|-------|---------|------|------|
+| 1 | [category] | [title] | [first ~100 chars of content] | [userEmail or "anonymous"] | [date] |
+
+[If no new feedback:]
+No new user feedback since last session.
+
+## 5. Research Context
 
 [If any research has been conducted, summarize key findings relevant to current work]
 
 [If no research yet:]
 No active research briefs.
 
-## 5. Recommended Next Actions
+## 6. Recommended Next Actions
 
 Based on project priorities and current state, I recommend:
 
@@ -114,7 +125,7 @@ Prioritize based on:
 - Cards stuck in "In Progress" or "Review" need attention
 - Projects with dirty working trees may have unfinished work
 
-## 6. Decisions Needed
+## 7. Decisions Needed
 
 [List anything that requires President approval to unblock:]
 - [Decision needed] — [context]

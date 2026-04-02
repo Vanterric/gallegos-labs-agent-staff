@@ -100,6 +100,15 @@ Use the Bash tool with `run_in_background: true`.
 
 If the dashboard is not reachable, note it in the briefing but do not block startup.
 
+#### 3e. Nimbus User Feedback
+Check for new user feedback from the Nimbus database:
+```bash
+bash scripts/check-feedback.sh
+```
+This queries the `feedbacks` collection in Nimbus MongoDB for any feedback submitted since the last check. Results are surfaced in the briefing. The script updates `.feedback-state.json` with the current timestamp so the same feedback isn't shown twice.
+
+If `mongosh` is not available or the query fails, note it in the briefing but do not block startup.
+
 ### Step 4: Pull OpenClaw Queue
 
 Follow `skills/staff/openclaw.md` to check in with OpenClaw on the Mac mini:
