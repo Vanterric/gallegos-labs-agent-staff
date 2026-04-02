@@ -3,13 +3,19 @@ import { createServer as createViteServer } from "vite";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
+const execFileAsync = promisify(execFile);
 const PORT = 5174;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const WORKSPACE_ROOT = path.resolve(ROOT, "..", "..");
 const RESEARCH_REPO = path.resolve(WORKSPACE_ROOT, "..", "gallegos-labs-research");
 const STAFF_CONFIG = path.resolve(WORKSPACE_ROOT, "..", "openclaw-staff", "config.md");
+const PRODUCTS_CONFIG = path.join(RESEARCH_REPO, "config", "products.yaml");
+const FINDINGS_RAW_DIR = path.join(RESEARCH_REPO, "findings", "raw");
+const INSIGHT_CATEGORIES = ["pain-point", "feature-request", "competitor-mention", "sentiment"] as const;
 
 interface PendingItem {
   id: string;
@@ -52,6 +58,23 @@ interface KanbanBoardResponse {
   columns: KanbanColumn[];
 }
 
+interface InsightProductOption {
+  key: string;
+  name: string;
+}
+
+interface CreateInsightPayload {
+  itemId?: string;
+  selectedText?: string;
+  product?: string;
+  category?: (typeof INSIGHT_CATEGORIES)[number];
+  comment?: string;
+  sourceDocumentTitle?: string;
+  sourceDocumentPath?: string;
+  sourceDocumentContent?: string | null;
+  fallbackSource?: string;
+}
+
 function titleFromFilename(filePath: string) {
   return path
     .basename(filePath)
@@ -59,6 +82,104 @@ function titleFromFilename(filePath: string) {
     .replace(/^\d{4}-\d{2}-\d{2}-/, "")
     .replace(/[-_]+/g, " ")
     .trim();
+}
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60) || "finding";
+}
+
+function escapeYaml(value: string) {
+  return JSON.stringify(value);
+}
+
+function parseSimpleFrontmatter(markdown: string): Record<string, string> {
+  if (!markdown.startsWith("---\n")) return {};
+  const endIndex = markdown.indexOf("\n---\n", 4);
+  if (endIndex === -1) return {};
+
+  return markdown
+    .slice(4, endIndex)
+    .split(/\r?\n/)
+    .reduce<Record<string, string>>((acc, line) => {
+      const idx = line.indexOf(":");
+      if (idx === -1) return acc;
+      acc[line.slice(0, idx).trim()] = line.slice(idx + 1).trim().replace(/^['"]|['"]$/g, "");
+      return acc;
+    }, {});
+}
+
+function parseProductsYaml(raw: string): InsightProductOption[] {
+  const lines = raw.split(/\r?\n/);
+  const products: InsightProductOption[] = [];
+  let currentKey: string | null = null;
+  let currentName: string | null = null;
+  let inProducts = false;
+
+  for (const line of lines) {
+    if (!line.trim() || line.trimStart().startsWith("#")) continue;
+    if (line.trim() === "products:") {
+      inProducts = true;
+      continue;
+    }
+    if (!inProducts) continue;
+
+    const keyMatch = line.match(/^  ([a-z0-9-]+):\s*$/i);
+    if (keyMatch) {
+      if (currentKey) {
+        products.push({ key: currentKey, name: currentName ?? currentKey });
+      }
+      currentKey = keyMatch[1];
+      currentName = null;
+      continue;
+    }
+
+    const nameMatch = line.match(/^    name:\s*["']?(.*?)["']?\s*$/);
+    if (nameMatch && currentKey) {
+      currentName = nameMatch[1];
+    }
+  }
+
+  if (currentKey) {
+    products.push({ key: currentKey, name: currentName ?? currentKey });
+  }
+
+  return products;
+}
+
+function inferFindingSource(frontmatter: Record<string, string>, fallbackSource?: string) {
+  const candidate = frontmatter.source || fallbackSource || "president-annotation";
+  const normalized = candidate.toLowerCase();
+  const allowed = new Set(["reddit", "in-app-feedback", "email", "survey", "interview", "president-annotation"]);
+  return allowed.has(normalized) ? normalized : "president-annotation";
+}
+
+function buildFindingPopulation(frontmatter: Record<string, string>, itemId: string) {
+  return frontmatter.population || `President annotation derived from ${itemId}`;
+}
+
+function buildFindingContext(params: {
+  sourceDocumentTitle: string;
+  sourceDocumentPath?: string;
+  selectedText: string;
+  comment: string;
+}) {
+  const lines = [
+    `Source document: ${params.sourceDocumentTitle}`,
+    params.sourceDocumentPath ? `Source path: ${params.sourceDocumentPath}` : null,
+    "",
+    "Selected excerpt:",
+    `> ${params.selectedText.replace(/\n+/g, "\n> ")}`,
+  ];
+
+  if (params.comment.trim()) {
+    lines.push("", "President annotation:", params.comment.trim());
+  }
+
+  return lines.filter(Boolean).join("\n");
 }
 
 async function safeStat(filePath: string) {
@@ -117,6 +238,15 @@ async function loadKanbanConfig() {
     token: values.KANBAN_TOKEN,
     boardName: values.BOARD_NAME,
   };
+}
+
+async function loadInsightProducts() {
+  const raw = await fs.readFile(PRODUCTS_CONFIG, "utf8");
+  const products = parseProductsYaml(raw);
+  if (products.length === 0) {
+    throw new Error("No products found in config/products.yaml");
+  }
+  return products;
 }
 
 async function fetchProjects(api: string, token: string): Promise<KanbanProjectSummary[]> {
@@ -200,6 +330,77 @@ async function fetchKanbanPending(): Promise<PendingItem[]> {
   }
 }
 
+async function nextFindingId(date: string) {
+  const entries = await fs.readdir(FINDINGS_RAW_DIR, { withFileTypes: true }).catch(() => []);
+  const prefix = `f-${date}-`;
+  let max = 0;
+
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const raw = await fs.readFile(path.join(FINDINGS_RAW_DIR, entry.name), "utf8").catch(() => "");
+    const match = raw.match(/^id:\s*(f-\d{4}-\d{2}-\d{2}-(\d{3}))$/m);
+    if (!match || !match[1].startsWith(prefix)) continue;
+    max = Math.max(max, Number(match[2]));
+  }
+
+  return `${prefix}${String(max + 1).padStart(3, "0")}`;
+}
+
+async function runResearchGit(args: string[]) {
+  return execFileAsync("git", args, { cwd: RESEARCH_REPO });
+}
+
+async function createFindingRecord(
+  payload: Required<Pick<CreateInsightPayload, "itemId" | "selectedText" | "product" | "category" | "sourceDocumentTitle">> & CreateInsightPayload,
+) {
+  const today = new Date().toISOString().slice(0, 10);
+  const selectedText = payload.selectedText.trim();
+  const comment = (payload.comment ?? "").trim();
+  const frontmatter = parseSimpleFrontmatter(payload.sourceDocumentContent ?? "");
+  const source = inferFindingSource(frontmatter, payload.fallbackSource);
+  const sourceUrl = frontmatter.source_url || "N/A";
+  const findingId = await nextFindingId(today);
+  const slug = slugify(`${payload.sourceDocumentTitle}-${selectedText.slice(0, 50)}`);
+  const filename = `${today}-${source}-${slug}.md`;
+  const filePath = path.join(FINDINGS_RAW_DIR, filename);
+  const context = buildFindingContext({
+    sourceDocumentTitle: payload.sourceDocumentTitle,
+    sourceDocumentPath: payload.sourceDocumentPath,
+    selectedText,
+    comment,
+  });
+
+  const markdown = `---
+id: ${findingId}
+date: ${today}
+source: ${source}
+source_url: ${escapeYaml(sourceUrl)}
+product: ${payload.product}
+population: ${escapeYaml(buildFindingPopulation(frontmatter, payload.itemId))}
+methodology: president-annotation
+category: ${payload.category}
+processed: false
+insight_ids: []
+---
+
+## Finding
+${selectedText}
+
+## Context
+${context}
+`;
+
+  await fs.mkdir(FINDINGS_RAW_DIR, { recursive: true });
+  await fs.writeFile(filePath, markdown, "utf8");
+
+  await runResearchGit(["add", filePath]);
+  await runResearchGit(["commit", "-m", `feat(findings): add ${findingId} from dashboard highlight`]);
+  const commit = (await runResearchGit(["rev-parse", "HEAD"])).stdout.trim();
+  await runResearchGit(["push"]);
+
+  return { findingId, filePath, commitHash: commit };
+}
+
 async function start() {
   const app = express();
   app.use(express.json({ limit: "2mb" }));
@@ -212,6 +413,52 @@ async function start() {
     const [drafts, kanbanItems] = await Promise.all([loadOutreachDrafts(), fetchKanbanPending()]);
     const items = [...drafts, ...kanbanItems].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     res.json({ items });
+  });
+
+  app.get("/api/insights/options", async (_req, res) => {
+    try {
+      const products = await loadInsightProducts();
+      res.json({ products, categories: [...INSIGHT_CATEGORIES] });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to load insight options" });
+    }
+  });
+
+  app.post("/api/insights/create", async (req, res) => {
+    const payload = (req.body ?? {}) as CreateInsightPayload;
+    const selectedText = typeof payload.selectedText === "string" ? payload.selectedText.trim() : "";
+    const product = typeof payload.product === "string" ? payload.product.trim() : "";
+    const category = payload.category;
+    const sourceDocumentTitle = typeof payload.sourceDocumentTitle === "string" ? payload.sourceDocumentTitle.trim() : "";
+    const itemId = typeof payload.itemId === "string" ? payload.itemId.trim() : "";
+
+    if (!itemId || !selectedText || !product || !sourceDocumentTitle || !category) {
+      return res.status(400).json({ error: "Missing required insight fields" });
+    }
+
+    if (!INSIGHT_CATEGORIES.includes(category)) {
+      return res.status(400).json({ error: `Invalid category: ${String(category)}` });
+    }
+
+    try {
+      const products = await loadInsightProducts();
+      if (!products.some((entry) => entry.key === product)) {
+        return res.status(400).json({ error: `Unknown product: ${product}` });
+      }
+
+      const result = await createFindingRecord({
+        ...payload,
+        itemId,
+        selectedText,
+        product,
+        category,
+        sourceDocumentTitle,
+      });
+
+      return res.json({ ok: true, ...result, pushed: true });
+    } catch (error) {
+      return res.status(500).json({ error: error instanceof Error ? error.message : "Failed to create insight" });
+    }
   });
 
   app.get("/api/content/file", async (req, res) => {
