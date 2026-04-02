@@ -1,8 +1,11 @@
 import express from "express";
+import { createServer } from "node:http";
 import { createServer as createViteServer } from "vite";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { watch } from "node:fs";
+import { WebSocketServer } from "ws";
 
 const PORT = 5174;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -12,6 +15,11 @@ const RESEARCH_REPO = path.resolve(WORKSPACE_ROOT, "..", "gallegos-labs-research
 const STAFF_CONFIG = path.resolve(WORKSPACE_ROOT, "..", "openclaw-staff", "config.md");
 const INBOX_STATE_DIR = path.join(ROOT, ".inbox-state");
 const DISMISSED_ITEMS_FILE = path.join(INBOX_STATE_DIR, "dismissed-items.json");
+const CHAT_RELAY_DIR = path.join(ROOT, ".chat-relay");
+const CHAT_INBOX_FILE = path.join(CHAT_RELAY_DIR, "inbox.jsonl");
+const CHAT_OUTBOX_FILE = path.join(CHAT_RELAY_DIR, "outbox.jsonl");
+const OPENCLAW_LOG_DIR = path.join(ROOT, ".openclaw-log");
+const OPENCLAW_LOG_FILE = path.join(OPENCLAW_LOG_DIR, "messages.jsonl");
 
 interface PendingItem {
   id: string;
@@ -54,6 +62,17 @@ interface KanbanBoardResponse {
   columns: KanbanColumn[];
 }
 
+type ChatChannel = "staff" | "openclaw";
+type ChatAuthor = "president" | "staff" | "openclaw";
+
+interface ChatMessage {
+  type: "message";
+  channel: ChatChannel;
+  from: ChatAuthor;
+  content: string;
+  timestamp: string;
+}
+
 function titleFromFilename(filePath: string) {
   return path
     .basename(filePath)
@@ -73,6 +92,14 @@ async function safeStat(filePath: string) {
 
 async function ensureInboxStateDir() {
   await fs.mkdir(INBOX_STATE_DIR, { recursive: true });
+}
+
+async function ensureChatRelayFiles() {
+  await fs.mkdir(CHAT_RELAY_DIR, { recursive: true });
+  await fs.mkdir(OPENCLAW_LOG_DIR, { recursive: true });
+  await fs.appendFile(CHAT_INBOX_FILE, "", "utf8");
+  await fs.appendFile(CHAT_OUTBOX_FILE, "", "utf8");
+  await fs.appendFile(OPENCLAW_LOG_FILE, "", "utf8");
 }
 
 async function readDismissedItems(): Promise<Record<string, string>> {
@@ -252,8 +279,64 @@ async function dismissOutreachDraft(itemId: string) {
   return destinationPath;
 }
 
+async function appendJsonLine(filePath: string, payload: unknown) {
+  await fs.appendFile(filePath, `${JSON.stringify(payload)}\n`, "utf8");
+}
+
+async function readJsonLines<T>(filePath: string): Promise<T[]> {
+  try {
+    const raw = await fs.readFile(filePath, "utf8");
+    return raw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as T);
+  } catch {
+    return [];
+  }
+}
+
+function createChatMessage(from: ChatAuthor, channel: ChatChannel, content: string): ChatMessage {
+  return {
+    type: "message",
+    from,
+    channel,
+    content,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+function watchJsonlFile(filePath: string, onEntries: (entries: ChatMessage[]) => void) {
+  let lastLineCount = 0;
+
+  const readNewEntries = async () => {
+    try {
+      const raw = await fs.readFile(filePath, "utf8");
+      const lines = raw.split(/\r?\n/).filter(Boolean);
+      if (lines.length <= lastLineCount) return;
+      const newLines = lines.slice(lastLineCount);
+      lastLineCount = lines.length;
+      const entries = newLines.map((line) => JSON.parse(line) as ChatMessage);
+      onEntries(entries);
+    } catch {
+      // ignore watcher races
+    }
+  };
+
+  void fs.readFile(filePath, "utf8").then((raw) => {
+    lastLineCount = raw.split(/\r?\n/).filter(Boolean).length;
+  }).catch(() => {});
+
+  const watcher = watch(filePath, () => {
+    void readNewEntries();
+  });
+
+  return watcher;
+}
+
 async function start() {
   await ensureInboxStateDir();
+  await ensureChatRelayFiles();
 
   const app = express();
   app.use(express.json({ limit: "2mb" }));
@@ -265,6 +348,18 @@ async function start() {
   app.get("/api/pending", async (_req, res) => {
     const items = await listPendingItems();
     res.json({ items });
+  });
+
+  app.get("/api/chat/history", async (_req, res) => {
+    const [inboxMessages, outboxMessages] = await Promise.all([
+      readJsonLines<ChatMessage>(CHAT_INBOX_FILE),
+      readJsonLines<ChatMessage>(CHAT_OUTBOX_FILE),
+    ]);
+
+    const messages = [...inboxMessages, ...outboxMessages].sort((a, b) =>
+      a.timestamp.localeCompare(b.timestamp),
+    );
+    res.json({ messages });
   });
 
   app.get("/api/content/file", async (req, res) => {
@@ -363,8 +458,57 @@ async function start() {
   });
   app.use(vite.middlewares);
 
-  app.listen(PORT, () => {
+  const server = createServer(app);
+  const wss = new WebSocketServer({ server, path: "/ws/chat" });
+
+  const broadcast = (message: ChatMessage) => {
+    const serialized = JSON.stringify(message);
+    for (const client of wss.clients) {
+      if (client.readyState === 1) {
+        client.send(serialized);
+      }
+    }
+  };
+
+  wss.on("connection", (socket) => {
+    socket.on("message", async (raw) => {
+      try {
+        const data = JSON.parse(raw.toString()) as Partial<ChatMessage>;
+        if (data.type !== "message" || data.from !== "president" || typeof data.content !== "string") {
+          return;
+        }
+
+        const message = createChatMessage("president", "staff", data.content.trim());
+        if (!message.content) return;
+        await appendJsonLine(CHAT_INBOX_FILE, message);
+        broadcast(message);
+      } catch {
+        // ignore malformed client messages
+      }
+    });
+  });
+
+  const outboxWatcher = watchJsonlFile(CHAT_OUTBOX_FILE, (entries) => {
+    for (const entry of entries) {
+      broadcast(entry);
+      if (entry.channel === "openclaw") {
+        void appendJsonLine(OPENCLAW_LOG_FILE, {
+          timestamp: entry.timestamp,
+          direction: "openclaw-log",
+          message: entry.content,
+        });
+      }
+    }
+  });
+
+  server.listen(PORT, () => {
     console.log(`Dashboard running at http://localhost:${PORT}`);
+  });
+
+  process.on("SIGINT", () => {
+    outboxWatcher.close();
+    wss.close();
+    server.close(() => process.exit(0));
   });
 }
 
