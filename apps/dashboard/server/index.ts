@@ -563,6 +563,66 @@ async function start() {
     res.json({ messages });
   });
 
+  app.post("/api/chat/reply", async (req, res) => {
+    const body = (req.body ?? {}) as { content?: string; channel?: string };
+    const content = typeof body.content === "string" ? body.content.trim() : "";
+    if (!content) {
+      return res.status(400).json({ error: "Missing message content" });
+    }
+
+    const channel = body.channel === "openclaw" ? "openclaw" : "staff";
+    const message = createChatMessage("staff", channel as ChatChannel, content);
+    await appendJsonLine(CHAT_OUTBOX_FILE, message);
+    return res.json({ ok: true, message });
+  });
+
+  app.get("/api/chat/wait", async (req, res) => {
+    const since = typeof req.query.since === "string" ? req.query.since : "";
+    if (!since) {
+      return res.status(400).json({ error: "Missing 'since' query parameter (ISO timestamp)" });
+    }
+
+    const timeoutSec = Math.min(Math.max(Number(req.query.timeout) || 60, 5), 120);
+    const deadline = Date.now() + timeoutSec * 1000;
+
+    const getNewMessages = async (): Promise<ChatMessage[]> => {
+      const messages = await readJsonLines<ChatMessage>(CHAT_INBOX_FILE);
+      return messages.filter((m) => m.from === "president" && m.timestamp > since);
+    };
+
+    const immediate = await getNewMessages();
+    if (immediate.length > 0) {
+      return res.json({ messages: immediate });
+    }
+
+    const interval = setInterval(async () => {
+      try {
+        const msgs = await getNewMessages();
+        if (msgs.length > 0) {
+          clearInterval(interval);
+          if (!res.headersSent) {
+            return res.json({ messages: msgs });
+          }
+        }
+        if (Date.now() >= deadline) {
+          clearInterval(interval);
+          if (!res.headersSent) {
+            return res.status(204).end();
+          }
+        }
+      } catch {
+        clearInterval(interval);
+        if (!res.headersSent) {
+          return res.status(500).json({ error: "Internal error while waiting" });
+        }
+      }
+    }, 1500);
+
+    res.on("close", () => {
+      clearInterval(interval);
+    });
+  });
+
   app.get("/api/insights/options", async (_req, res) => {
     try {
       const products = await loadInsightProducts();
