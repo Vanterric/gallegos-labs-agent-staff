@@ -1,13 +1,14 @@
 # Testing — OpenClaw
 
-After implementing a feature, you must test it before it can go to Review. This skill covers functional testing, visual regression testing, and test failure handling — all using Playwright MCP.
+You write tests BEFORE implementation (TDD). The pipeline calls this skill at two points: first to write failing tests that define "done" (Step 5), then to run the full suite after implementation (Step 7). Visual baselines are captured after implementation.
 
 ## Test Order
 
-1. **Run existing tests** — Don't break what already works
-2. **Write functional tests** — Verify the new feature works end-to-end
-3. **Write visual tests** — Capture screenshots for visual regression
-4. **Run everything** — All tests must pass
+1. **Run existing tests** — Establish a green baseline before touching anything
+2. **Write functional tests** — Define what "done" looks like. These MUST FAIL before implementation.
+3. **Implement** — (handled by pipeline Step 6, not this skill)
+4. **Run full suite** — All tests must pass after implementation
+5. **Write visual tests** — Capture screenshots for visual regression (post-implementation)
 
 ## Step 1: Run Existing Tests
 
@@ -111,8 +112,8 @@ All tests must pass. Record the results:
 
 ## Failure Handling
 
-### Test fails on first run
-Investigate and fix. This is expected — you're doing TDD.
+### Test fails on first run (before implementation)
+This is expected and correct — you're doing TDD. Tests should fail before implementation exists.
 
 ### Test fails after fix attempt (retry 1)
 Read the error carefully. Is it a code bug or a test bug? Fix the right one.

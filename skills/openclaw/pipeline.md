@@ -73,24 +73,77 @@ Follow `skills/openclaw/planning.md` to create an implementation plan.
 - Write a plan to `docs/plans/YYYY-MM-DD-<card-slug>.md` in the target repo
 - Update the card description with a link to the plan
 
-### Step 4: Implement
+### Step 4: Run Existing Tests (Baseline)
+
+Before writing any code, run the target repo's existing test suite to establish a green baseline:
+
+```bash
+cd {{project_path}}
+if [ -f "package.json" ]; then
+  npm test 2>&1
+elif [ -f "Makefile" ]; then
+  make test 2>&1
+elif [ -f "pytest.ini" ] || [ -f "setup.py" ]; then
+  pytest 2>&1
+fi
+```
+
+- If all pass: record the count as your baseline. Continue.
+- If some fail: note pre-existing failures in the card. Do not fix unrelated bugs. Continue.
+- Commit nothing at this step — this is just a health check.
+
+### Step 5: Write Tests First
+
+Before implementing, write failing tests that define what "done" looks like for this card.
+
+Follow `skills/openclaw/testing.md` Step 2 (Functional Tests) to write tests based on the plan:
+- Write tests for the happy path described in the card
+- Write tests for edge cases specified in the card
+- Write tests for error states if the feature has error handling
+
+Run the new tests. **They should fail.** If they pass before you've written any implementation, your tests aren't testing the right thing — rewrite them.
+
+```bash
+cd {{project_path}} && npm test 2>&1
+```
+
+Commit the failing tests:
+```bash
+git add tests/ && git commit -m "test: add failing tests for <card-slug>"
+```
+
+### Step 6: Implement Until Tests Pass
 
 - Create a feature branch: `feature/<card-slug>` or `fix/<card-slug>`
 - Implement the plan step by step
-- Write clean, tested code following the repo's conventions
+- After each meaningful change, run the tests:
+```bash
+cd {{project_path}} && npm test 2>&1
+```
+- Write clean code following the repo's conventions
 - Commit frequently with descriptive messages
+- **Keep going until all new tests pass**
 
-### Step 5: Test
+### Step 7: Run Full Test Suite
 
-Follow `skills/openclaw/testing.md` to run tests.
+Run the complete test suite — both your new tests and all pre-existing tests:
 
-- Run the existing test suite (if any)
-- Write and run Playwright MCP functional tests for the new feature
-- Write and run Playwright MCP visual regression tests
-- **If tests fail:** Attempt to fix (max 2 retries)
-- **If still failing after retries:** Move the card to "To Do" with `[BLOCKED]` prefix in the title, write a `blocked` message to the queue, and STOP this card.
+```bash
+cd {{project_path}} && npm test 2>&1
+```
 
-### Step 6: Demo
+- **All tests pass:** Record results, continue to demo.
+- **New tests fail:** Fix the implementation (max 2 retries). If still failing after retries, move card to "To Do" with `[BLOCKED]` prefix, write a `blocked` message to the queue, and STOP this card.
+- **Pre-existing tests broken by your changes:** Fix them. Your code should not regress existing functionality.
+
+Follow `skills/openclaw/testing.md` Step 3 to capture visual regression baselines if the feature has UI.
+
+Commit:
+```bash
+git add -A && git commit -m "test: all tests passing for <card-slug>"
+```
+
+### Step 8: Demo
 
 Follow `skills/openclaw/demo.md` to record a demo.
 
@@ -98,7 +151,7 @@ Follow `skills/openclaw/demo.md` to record a demo.
 - Save the video artifact
 - Link it in the card description
 
-### Step 7: Open PR and Move to Review
+### Step 9: Open PR and Move to Review
 
 Before a card enters Review, create a GitHub Pull Request for the work branch.
 
@@ -172,7 +225,7 @@ curl -s -X POST "$KANBAN_API/api/cards/move" \
 
 Write a `review:ready` message to the queue (see `skills/openclaw/queue.md`) and include the PR link in the Summary field.
 
-### Step 8: Loop
+### Step 10: Loop
 
 Return to Step 1.
 
