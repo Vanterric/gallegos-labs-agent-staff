@@ -5,6 +5,9 @@
 CONTENT="${1:?Usage: chat-reply.sh \"message content\"}"
 DASHBOARD="http://localhost:5174"
 
+# Escape content for JSON: backslashes, quotes, newlines
+ESCAPED=$(printf '%s' "$CONTENT" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' ')
+
 curl -s -X POST "$DASHBOARD/api/chat/reply" \
   -H "Content-Type: application/json" \
-  -d "{\"content\":$(echo "$CONTENT" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().strip()))'),\"channel\":\"staff\"}"
+  -d "{\"content\":\"$ESCAPED\",\"channel\":\"staff\"}"
