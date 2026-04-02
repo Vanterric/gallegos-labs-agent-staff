@@ -235,7 +235,7 @@ async function listPendingItems(): Promise<PendingItem[]> {
 }
 
 async function dismissOutreachDraft(itemId: string) {
-  const filename = itemId.replace(/^outreach:/, "");
+  const filename = path.basename(itemId.replace(/^outreach:/, ""));
   const draftsDir = path.join(RESEARCH_REPO, "outreach", "drafts");
   const dismissedDir = path.join(RESEARCH_REPO, "outreach", "dismissed");
   const sourcePath = path.join(draftsDir, filename);
