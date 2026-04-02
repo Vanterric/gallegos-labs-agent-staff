@@ -79,6 +79,29 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 2>/dev/null || echo
 ```
 If needed, start from `{{nimbus_path}}/apps/nimbus-hub` with `npm run dev` in the background.
 
+#### 3d. Dashboard Chat Bridge (http://localhost:5174)
+Check if the President Dashboard is running:
+```bash
+curl -s -o /dev/null -w "%{http_code}" http://localhost:5174/api/health 2>/dev/null || echo "UNREACHABLE"
+```
+
+If the dashboard is up:
+
+1. Send a connection greeting:
+```bash
+curl -s -X POST http://localhost:5174/api/chat/reply \
+  -H "Content-Type: application/json" \
+  -d '{"content":"Staff session connected. Standing by.","channel":"staff"}'
+```
+
+2. Start the chat watcher as a background task. This long-polls for president messages and exits when one arrives:
+```bash
+SINCE="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" && while true; do RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" "http://localhost:5174/api/chat/wait?since=$SINCE&timeout=60"); HTTP_STATUS=$(echo "$RESPONSE" | tail -1 | sed 's/HTTP_STATUS://'); if [ "$HTTP_STATUS" = "200" ]; then echo "$RESPONSE" | sed '$d'; exit 0; fi; done
+```
+Use the Bash tool with `run_in_background: true`.
+
+If the dashboard is not reachable, note it in the briefing but do not block startup.
+
 ### Step 4: Pull OpenClaw Queue
 
 Follow `skills/staff/openclaw.md` to check in with OpenClaw on the Mac mini:
@@ -119,6 +142,23 @@ The President may say things like:
 - Track all dispatched background agents
 - When an agent completes, immediately process its results (follow `skills/staff/dispatch.md`)
 - Present summaries and ask for review when needed
+
+### Dashboard Chat Bridge
+When the dashboard chat watcher background task completes (you receive a task notification):
+1. Parse the JSON response — it contains `{ messages: ChatMessage[] }` from the President
+2. Surface the message content in the conversation naturally
+3. Respond to the President's message
+4. Send your response back to the dashboard:
+```bash
+curl -s -X POST http://localhost:5174/api/chat/reply \
+  -H "Content-Type: application/json" \
+  -d '{"content":"{{your_response}}","channel":"staff"}'
+```
+5. Restart the watcher with an updated `since` timestamp (use the latest message's timestamp):
+```bash
+SINCE="{{latest_message_timestamp}}" && while true; do RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" "http://localhost:5174/api/chat/wait?since=$SINCE&timeout=60"); HTTP_STATUS=$(echo "$RESPONSE" | tail -1 | sed 's/HTTP_STATUS://'); if [ "$HTTP_STATUS" = "200" ]; then echo "$RESPONSE" | sed '$d'; exit 0; fi; done
+```
+Use the Bash tool with `run_in_background: true`.
 
 ### Keeping Kanban Updated
 - All work should be reflected on the kanban board
