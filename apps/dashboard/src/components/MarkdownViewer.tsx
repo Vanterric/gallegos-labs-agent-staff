@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { approveResearchPlan } from "../lib/api";
+import { approveResearchPlan, dismissPendingItem } from "../lib/api";
 import type { PendingItem } from "../lib/types";
 
 interface MarkdownViewerProps {
@@ -9,6 +9,7 @@ interface MarkdownViewerProps {
   content: string | null;
   isLoading: boolean;
   onApproved?: () => void;
+  onDismissed?: (item: PendingItem) => void;
 }
 
 function parseFrontmatter(markdown: string): { frontmatter: Record<string, string>; body: string } {
@@ -36,10 +37,19 @@ function parseFrontmatter(markdown: string): { frontmatter: Record<string, strin
   return { frontmatter, body };
 }
 
-export default function MarkdownViewer({ item, content, isLoading, onApproved }: MarkdownViewerProps) {
+export default function MarkdownViewer({ item, content, isLoading, onApproved, onDismissed }: MarkdownViewerProps) {
   const [approveState, setApproveState] = useState<"idle" | "submitting" | "done" | "error">("idle");
   const [approveError, setApproveError] = useState<string | null>(null);
+  const [dismissState, setDismissState] = useState<"idle" | "submitting" | "done" | "error">("idle");
+  const [dismissError, setDismissError] = useState<string | null>(null);
   const parsed = useMemo(() => parseFrontmatter(content ?? ""), [content]);
+
+  useEffect(() => {
+    setApproveState("idle");
+    setApproveError(null);
+    setDismissState("idle");
+    setDismissError(null);
+  }, [item?.id]);
 
   const handleApprove = async () => {
     if (!item?.cardId) return;
@@ -53,6 +63,21 @@ export default function MarkdownViewer({ item, content, isLoading, onApproved }:
     } catch (error) {
       setApproveState("error");
       setApproveError(error instanceof Error ? error.message : "Approval failed");
+    }
+  };
+
+  const handleDismiss = async () => {
+    if (!item) return;
+
+    try {
+      setDismissState("submitting");
+      setDismissError(null);
+      await dismissPendingItem(item.id);
+      setDismissState("done");
+      onDismissed?.(item);
+    } catch (error) {
+      setDismissState("error");
+      setDismissError(error instanceof Error ? error.message : "Dismiss failed");
     }
   };
 
@@ -88,22 +113,32 @@ export default function MarkdownViewer({ item, content, isLoading, onApproved }:
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{parsed.body || content || "(empty)"}</ReactMarkdown>
       </article>
 
-      {item.type === "research-plan" && item.cardId && (
-        <div className="space-y-2">
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          {item.type === "research-plan" && item.cardId && (
+            <button
+              onClick={() => void handleApprove()}
+              disabled={approveState === "submitting" || approveState === "done" || dismissState === "submitting"}
+              className="rounded-btn bg-nimbus-accent px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {approveState === "submitting"
+                ? "Approving…"
+                : approveState === "done"
+                  ? "Approved"
+                  : "Approve Research Plan"}
+            </button>
+          )}
           <button
-            onClick={() => void handleApprove()}
-            disabled={approveState === "submitting" || approveState === "done"}
-            className="rounded-btn bg-nimbus-accent px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => void handleDismiss()}
+            disabled={dismissState === "submitting" || dismissState === "done" || approveState === "submitting"}
+            className="rounded-btn border border-nimbus-border bg-nimbus-bg-secondary px-3 py-2 text-sm font-medium text-nimbus-text-primary hover:bg-nimbus-bg-tertiary disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {approveState === "submitting"
-              ? "Approving…"
-              : approveState === "done"
-                ? "Approved"
-                : "Approve Research Plan"}
+            {dismissState === "submitting" ? "Dismissing…" : dismissState === "done" ? "Dismissed" : "Dismiss"}
           </button>
-          {approveError && <p className="text-sm text-nimbus-error">{approveError}</p>}
         </div>
-      )}
+        {approveError && <p className="text-sm text-nimbus-error">{approveError}</p>}
+        {dismissError && <p className="text-sm text-nimbus-error">{dismissError}</p>}
+      </div>
     </div>
   );
 }

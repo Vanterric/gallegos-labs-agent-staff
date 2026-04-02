@@ -23,11 +23,27 @@ export default function App() {
   const [selectedItem, setSelectedItem] = useState<PendingItem | null>(null);
   const [selectedContent, setSelectedContent] = useState<string | null>(null);
   const [isContentLoading, setIsContentLoading] = useState(false);
-  const { items, isLoading, error, reload } = usePending();
+  const { items, isLoading, error, reload, removeItem } = usePending();
 
   useEffect(() => {
-    if (!selectedItem && items.length > 0) {
+    if (items.length === 0) {
+      setSelectedItem(null);
+      return;
+    }
+
+    if (!selectedItem) {
       setSelectedItem(items[0]);
+      return;
+    }
+
+    const refreshedSelected = items.find((item) => item.id === selectedItem.id);
+    if (!refreshedSelected) {
+      setSelectedItem(items[0]);
+      return;
+    }
+
+    if (refreshedSelected !== selectedItem) {
+      setSelectedItem(refreshedSelected);
     }
   }, [items, selectedItem]);
 
@@ -58,6 +74,11 @@ export default function App() {
     setActiveTab("md-viewer");
   };
 
+  const handleDismissed = (item: PendingItem) => {
+    removeItem(item.id);
+    setSelectedContent(null);
+  };
+
   const View = activeNav === "inbox" ? null : staticViews[activeNav];
 
   return (
@@ -83,6 +104,7 @@ export default function App() {
         selectedContent={selectedContent}
         isContentLoading={isContentLoading}
         onApproved={() => void reload()}
+        onDismissed={handleDismissed}
       />
     </div>
   );
