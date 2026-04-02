@@ -20,6 +20,131 @@ POLL_CADENCE: 5 minutes
 QUEUE_PATH: ~/openclaw-staff/queue.md
 ```
 
+## State Journaling (Context Window Resilience)
+
+Your context window may fill up mid-card, causing a session reset. To ensure you can always resume, persist state to disk after every meaningful step.
+
+### State Directory
+
+```
+~/openclaw-staff/state/
+  index.json                    ← Which card is active, quick discovery
+  cards/
+    <cardId>/
+      run.json                  ← Structured machine state
+      events.ndjson             ← Append-only event log
+      handoff.md                ← Human/LLM-readable restart brief
+```
+
+### index.json
+
+```json
+{
+  "activeCardId": "abc123",
+  "cards": {
+    "abc123": {
+      "status": "in_progress",
+      "phase": "implementing",
+      "updatedAt": "2026-04-02T14:18:42Z"
+    }
+  }
+}
+```
+
+### run.json (per card)
+
+```json
+{
+  "cardId": "abc123",
+  "cardTitle": "Dashboard Phase 4: OpenClaw Log",
+  "status": "in_progress",
+  "phase": "planning | testing | implementing | running_suite | recording_demo | opening_pr",
+  "updatedAt": "2026-04-02T14:18:42Z",
+  "plan": ["step 1 description", "step 2 description", "step 3 description"],
+  "currentStep": 2,
+  "artifacts": {
+    "branch": "feature/dashboard-phase-4",
+    "planFile": "docs/plans/2026-04-02-dashboard-phase-4.md",
+    "filesTouched": ["src/x.ts", "server/index.ts"],
+    "testsWritten": ["tests/phase4.test.ts"],
+    "testsPassing": true
+  },
+  "resume": {
+    "nextAction": "Implement the Visual Playground POST endpoint, then run tests",
+    "completedActions": ["Added OpenClaw log GET endpoint", "Wired log UI component"],
+    "blockingIssues": [],
+    "openQuestions": []
+  }
+}
+```
+
+### events.ndjson (per card, append-only)
+
+```
+{"ts":"2026-04-02T14:00:00Z","type":"card_started","cardId":"abc123"}
+{"ts":"2026-04-02T14:05:00Z","type":"plan_written","planFile":"docs/plans/..."}
+{"ts":"2026-04-02T14:10:00Z","type":"tests_written","files":["tests/phase4.test.ts"]}
+{"ts":"2026-04-02T14:15:00Z","type":"step_completed","step":1,"summary":"Added log endpoint"}
+{"ts":"2026-04-02T14:18:00Z","type":"file_written","path":"src/x.ts"}
+```
+
+### handoff.md (per card, regenerated after each transition)
+
+```markdown
+# Card abc123 — Dashboard Phase 4
+**Status:** In Progress — implementing
+**Branch:** feature/dashboard-phase-4
+**Next action:** Implement the Visual Playground POST endpoint, then run tests
+
+## Done
+- Added OpenClaw log GET endpoint
+- Wired log UI component
+- Tests written for log endpoint
+
+## Remaining
+- Visual Playground POST endpoint
+- Visual Playground UI
+- Run full test suite
+- Record demo
+
+## Open Questions
+(none)
+```
+
+### When to Flush State
+
+Update `run.json`, append to `events.ndjson`, and regenerate `handoff.md` at these points:
+- Card started (phase: planning)
+- Plan written (phase: testing)
+- Tests written (phase: implementing)
+- Each plan step completed
+- Each file created or modified
+- Tests run (pass or fail)
+- Demo recorded (phase: recording_demo)
+- PR opened (phase: opening_pr)
+- Card completed
+- Any blocker encountered
+- **Before any long operation** (API calls, builds, large file writes)
+
+### On Session Boot (Resume Check)
+
+Before entering the main loop, check for stalled work:
+
+1. Read `~/openclaw-staff/state/index.json`
+2. If `activeCardId` exists and status is `in_progress`:
+   - Read `state/cards/<cardId>/handoff.md`
+   - Read `state/cards/<cardId>/run.json`
+   - Check if the branch exists: `git branch --list {{branch}}`
+   - Check out the branch if it exists
+   - Resume from `resume.nextAction` — do NOT restart the card from scratch
+3. If no active card, proceed to the normal loop
+
+### On Card Completion
+
+1. Set `run.json` status to `completed`
+2. Clear `activeCardId` in `index.json`
+3. Final `handoff.md` becomes a summary record
+
 ## The Loop
 
 Run this loop on your configured cadence. Each cycle is one pass through the pipeline.
@@ -46,6 +171,12 @@ If no cards in To Do:
 
 If a card exists:
 - Read its `title` and `description`
+- Initialize state journaling:
+  - Create `~/openclaw-staff/state/cards/<cardId>/`
+  - Write initial `run.json` with status `in_progress`, phase `planning`
+  - Write initial `handoff.md`
+  - Append `card_started` event to `events.ndjson`
+  - Set `activeCardId` in `~/openclaw-staff/state/index.json`
 - Move it to "In Progress":
 
 ```bash
@@ -72,6 +203,7 @@ Follow `skills/openclaw/planning.md` to create an implementation plan.
 - Explore relevant code
 - Write a plan to `docs/plans/YYYY-MM-DD-<card-slug>.md` in the target repo
 - Update the card description with a link to the plan
+- **Flush state:** Update `run.json` (phase: `testing`, plan steps listed), append `plan_written` event, regenerate `handoff.md`
 
 ### Step 4: Run Existing Tests (Baseline)
 
@@ -112,6 +244,8 @@ Commit the failing tests:
 git add tests/ && git commit -m "test: add failing tests for <card-slug>"
 ```
 
+**Flush state:** Update `run.json` (phase: `implementing`, tests listed in artifacts), append `tests_written` event, regenerate `handoff.md`
+
 ### Step 6: Implement Until Tests Pass
 
 - Create a feature branch: `feature/<card-slug>` or `fix/<card-slug>`
@@ -122,6 +256,7 @@ cd {{project_path}} && npm test 2>&1
 ```
 - Write clean code following the repo's conventions
 - Commit frequently with descriptive messages
+- **After each plan step completed:** flush state — update `run.json` (increment `currentStep`, update `resume.nextAction`), append `step_completed` event, regenerate `handoff.md`. Push the branch.
 - **Keep going until all new tests pass**
 
 ### Step 7: Run Full Test Suite
@@ -142,6 +277,8 @@ Commit:
 ```bash
 git add -A && git commit -m "test: all tests passing for <card-slug>"
 ```
+
+**Flush state:** Update `run.json` (phase: `recording_demo`, `testsPassing: true`), append `suite_passed` event, regenerate `handoff.md`. Push the branch.
 
 ### Step 8: Demo
 

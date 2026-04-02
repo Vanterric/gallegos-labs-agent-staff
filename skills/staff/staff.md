@@ -150,6 +150,13 @@ The President may say things like:
 - When an agent completes, immediately process its results (follow `skills/staff/dispatch.md`)
 - Present summaries and ask for review when needed
 
+### Monitoring OpenClaw Stalled Cards
+If the kanban board shows a card in "In Progress" during the briefing, check whether OpenClaw is actually working on it:
+1. Ask OpenClaw via the Gateway API: "Are you currently working on [card title]?"
+2. If OpenClaw says no or doesn't recognize the card, it likely lost context (session reset)
+3. Tell OpenClaw to resume: "[STAFF:work:assign] Resume card [cardId]: [card title]. Check ~/openclaw-staff/state/cards/<cardId>/handoff.md for where you left off."
+4. If no state files exist for that card, tell OpenClaw to start the card fresh
+
 ### Dashboard Chat Bridge
 When the dashboard chat watcher background task completes (you receive a task notification):
 1. Parse the JSON response — it contains `{ messages: ChatMessage[] }` from the President
