@@ -10,6 +10,8 @@ const ROOT = path.resolve(__dirname, "..");
 const WORKSPACE_ROOT = path.resolve(ROOT, "..", "..");
 const RESEARCH_REPO = path.resolve(WORKSPACE_ROOT, "..", "gallegos-labs-research");
 const STAFF_CONFIG = path.resolve(WORKSPACE_ROOT, "..", "openclaw-staff", "config.md");
+const INBOX_STATE_DIR = path.join(ROOT, ".inbox-state");
+const DISMISSED_ITEMS_FILE = path.join(INBOX_STATE_DIR, "dismissed-items.json");
 
 interface PendingItem {
   id: string;
@@ -67,6 +69,26 @@ async function safeStat(filePath: string) {
   } catch {
     return null;
   }
+}
+
+async function ensureInboxStateDir() {
+  await fs.mkdir(INBOX_STATE_DIR, { recursive: true });
+}
+
+async function readDismissedItems(): Promise<Record<string, string>> {
+  try {
+    const raw = await fs.readFile(DISMISSED_ITEMS_FILE, "utf8");
+    return JSON.parse(raw) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+async function markItemDismissed(itemId: string) {
+  await ensureInboxStateDir();
+  const dismissed = await readDismissedItems();
+  dismissed[itemId] = new Date().toISOString();
+  await fs.writeFile(DISMISSED_ITEMS_FILE, `${JSON.stringify(dismissed, null, 2)}\n`, "utf8");
 }
 
 async function loadOutreachDrafts(): Promise<PendingItem[]> {
@@ -200,7 +222,39 @@ async function fetchKanbanPending(): Promise<PendingItem[]> {
   }
 }
 
+async function listPendingItems(): Promise<PendingItem[]> {
+  const [drafts, kanbanItems, dismissedItems] = await Promise.all([
+    loadOutreachDrafts(),
+    fetchKanbanPending(),
+    readDismissedItems(),
+  ]);
+
+  return [...drafts, ...kanbanItems]
+    .filter((item) => !dismissedItems[item.id])
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+async function dismissOutreachDraft(itemId: string) {
+  const filename = itemId.replace(/^outreach:/, "");
+  const draftsDir = path.join(RESEARCH_REPO, "outreach", "drafts");
+  const dismissedDir = path.join(RESEARCH_REPO, "outreach", "dismissed");
+  const sourcePath = path.join(draftsDir, filename);
+  const destinationPath = path.join(dismissedDir, filename);
+
+  const stat = await safeStat(sourcePath);
+  if (!stat?.isFile()) {
+    throw new Error("Outreach draft not found");
+  }
+
+  await fs.mkdir(dismissedDir, { recursive: true });
+  await fs.rename(sourcePath, destinationPath);
+
+  return destinationPath;
+}
+
 async function start() {
+  await ensureInboxStateDir();
+
   const app = express();
   app.use(express.json({ limit: "2mb" }));
 
@@ -209,8 +263,7 @@ async function start() {
   });
 
   app.get("/api/pending", async (_req, res) => {
-    const [drafts, kanbanItems] = await Promise.all([loadOutreachDrafts(), fetchKanbanPending()]);
-    const items = [...drafts, ...kanbanItems].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const items = await listPendingItems();
     res.json({ items });
   });
 
@@ -229,6 +282,31 @@ async function start() {
       return res.json({ path: path.resolve(requestedPath), content });
     } catch (error) {
       return res.status(404).json({ error: error instanceof Error ? error.message : "File not found" });
+    }
+  });
+
+  app.post("/api/dismiss/:itemId", async (req, res) => {
+    const itemId = String(req.params.itemId || "");
+    if (!itemId) {
+      return res.status(400).json({ error: "Missing item id" });
+    }
+
+    try {
+      if (itemId.startsWith("outreach:")) {
+        const destinationPath = await dismissOutreachDraft(itemId);
+        return res.json({ ok: true, dismissedId: itemId, action: "moved", destinationPath });
+      }
+
+      const pendingItems = await listPendingItems();
+      const item = pendingItems.find((candidate) => candidate.id === itemId);
+      if (!item) {
+        return res.status(404).json({ error: "Inbox item not found" });
+      }
+
+      await markItemDismissed(itemId);
+      return res.json({ ok: true, dismissedId: itemId, action: "hidden" });
+    } catch (error) {
+      return res.status(500).json({ error: error instanceof Error ? error.message : "Dismiss failed" });
     }
   });
 

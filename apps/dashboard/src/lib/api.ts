@@ -1,4 +1,4 @@
-import type { FileContentResponse, PendingResponse } from "./types";
+import type { DismissResponse, FileContentResponse, PendingResponse } from "./types";
 
 export async function fetchPending(): Promise<PendingResponse> {
   const res = await fetch("/api/pending");
@@ -25,4 +25,16 @@ export async function approveResearchPlan(cardId: string): Promise<void> {
   if (!res.ok) {
     throw new Error(`Failed to approve research plan: ${res.status}`);
   }
+}
+
+export async function dismissPendingItem(itemId: string): Promise<DismissResponse> {
+  const res = await fetch(`/api/dismiss/${encodeURIComponent(itemId)}`, {
+    method: "POST",
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to dismiss inbox item: ${res.status}`);
+  }
+
+  return res.json();
 }

@@ -32,3 +32,10 @@ export interface FileContentResponse {
   path: string;
   content: string;
 }
+
+export interface DismissResponse {
+  ok: true;
+  dismissedId: string;
+  action: "moved" | "hidden";
+  destinationPath?: string;
+}

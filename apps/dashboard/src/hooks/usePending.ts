@@ -20,9 +20,13 @@ export function usePending() {
     }
   };
 
+  const removeItem = (itemId: string) => {
+    setItems((current) => current.filter((item) => item.id !== itemId));
+  };
+
   useEffect(() => {
     void load();
   }, []);
 
-  return { items, isLoading, error, reload: load };
+  return { items, isLoading, error, reload: load, removeItem };
 }

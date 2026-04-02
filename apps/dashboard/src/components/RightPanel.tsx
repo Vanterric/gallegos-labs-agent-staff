@@ -8,6 +8,7 @@ interface RightPanelProps {
   selectedContent: string | null;
   isContentLoading: boolean;
   onApproved?: () => void;
+  onDismissed?: (item: PendingItem) => void;
 }
 
 export default function RightPanel({
@@ -17,6 +18,7 @@ export default function RightPanel({
   selectedContent,
   isContentLoading,
   onApproved,
+  onDismissed,
 }: RightPanelProps) {
   return (
     <aside className="w-96 h-full flex flex-col bg-nimbus-surface-elevated border-l border-nimbus-border shrink-0">
@@ -50,6 +52,7 @@ export default function RightPanel({
             content={selectedContent}
             isLoading={isContentLoading}
             onApproved={onApproved}
+            onDismissed={onDismissed}
           />
         ) : (
           <p className="text-nimbus-text-muted text-sm">
