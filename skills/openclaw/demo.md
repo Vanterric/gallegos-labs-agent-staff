@@ -6,7 +6,9 @@ After tests pass, record a short video demo of the feature. This is what the Pre
 
 The demo video shows the feature working. It's proof that the implementation is correct and a quick way for the President to understand what was built.
 
-## Recording Process
+## Recording Method
+
+Use a **direct Playwright script** (not MCP browser tools — they don't support video recording). Playwright is installed at `~/openclaw-staff/node_modules/playwright`.
 
 ### 1. Plan the Demo
 
@@ -15,34 +17,74 @@ Before recording, plan a script:
 - What are the 2-3 most important things to show?
 - Keep it under 60 seconds
 
-### 2. Set Up
+### 2. Write the Recording Script
 
-Use Playwright MCP to control a browser:
+Create a recording script at `/tmp/demo-<card-slug>.mjs`:
 
-1. Start the dev server if needed
-2. Open a browser at a consistent viewport (1280x720)
-3. Navigate to the starting point
+```javascript
+import { chromium } from "playwright";
 
-### 3. Record
+const browser = await chromium.launch();
+const context = await browser.newContext({
+  viewport: { width: 1280, height: 720 },
+  recordVideo: {
+    dir: "{{target_repo_path}}/artifacts/demos",
+    size: { width: 1280, height: 720 }
+  }
+});
 
-Use Playwright MCP's video recording capability:
+const page = await context.newPage();
 
-1. Start recording
-2. Walk through the happy path:
-   - Show the feature's entry point
-   - Demonstrate the core interaction
-   - Show the result/output
-3. Stop recording
+// === DEMO SCRIPT ===
+// Navigate to the feature's starting point
+await page.goto("http://localhost:{{port}}");
+await page.waitForTimeout(1000);
 
-### 4. Save
+// Demonstrate the core interaction
+// ... page.click(), page.fill(), page.waitForSelector(), etc.
 
-Save the video artifact:
+// Show the result
+await page.waitForTimeout(2000);
+// === END DEMO ===
 
+// Close context to finalize video
+await context.close();
+await browser.close();
+
+console.log("Demo recorded to {{target_repo_path}}/artifacts/demos/");
 ```
-artifacts/demos/YYYY-MM-DD-<card-slug>.mp4
+
+Customize the demo script section for each card's happy path. Use Playwright actions:
+- `page.goto(url)` — navigate
+- `page.click(selector)` — click elements
+- `page.fill(selector, text)` — type into inputs
+- `page.waitForSelector(selector)` — wait for elements
+- `page.waitForTimeout(ms)` — pause for the viewer to see the state (1-2 seconds between actions)
+
+### 3. Run the Recording
+
+```bash
+cd ~/openclaw-staff && node /tmp/demo-<card-slug>.mjs
 ```
 
-If the `artifacts/demos/` directory doesn't exist, create it.
+The `cd ~/openclaw-staff` is required so Node can resolve the playwright package.
+
+### 4. Rename and Commit
+
+Playwright generates a random filename. Rename it to match the card:
+
+```bash
+cd {{target_repo_path}}/artifacts/demos
+LATEST=$(ls -t *.webm | head -1)
+mv "$LATEST" "YYYY-MM-DD-<card-slug>.webm"
+```
+
+Commit the video:
+
+```bash
+git add artifacts/demos/YYYY-MM-DD-<card-slug>.webm
+git commit -m "demo: add video walkthrough for <card-title>"
+```
 
 ### 5. Link in Card
 
@@ -50,28 +92,39 @@ Add the demo path to the card description:
 
 ```markdown
 ## Demo
-artifacts/demos/YYYY-MM-DD-<card-slug>.mp4
+- **Video:** artifacts/demos/YYYY-MM-DD-<card-slug>.webm
+```
+
+## Starting Dev Servers
+
+Most demos need a dev server running. Start it before the recording script:
+
+```bash
+cd {{target_repo_path}} && npm run dev &
+DEV_PID=$!
+sleep 5  # Wait for server
+
+# Run the recording
+cd ~/openclaw-staff && node /tmp/demo-<card-slug>.mjs
+
+# Clean up
+kill $DEV_PID 2>/dev/null
 ```
 
 ## When a Demo Isn't Possible
 
 Some features don't have a visual component (e.g., a CLI tool, a backend-only change, a config file). In these cases:
 
-- **CLI features:** Record a terminal session showing the command and output
-- **API features:** Record a sequence of curl commands and responses
+- **API features:** Record a sequence of curl commands and responses in a markdown file
 - **Config/skill files:** Skip the demo, note "No visual demo — config/skill file" in the card
 
-Don't force a demo where one doesn't make sense. The goal is to help the reviewer understand the change, not to check a box.
+Don't force a demo where one doesn't make sense.
 
 ## Demo Quality
 
 - **Keep it short** — 30-60 seconds is ideal
+- **Pace for readability** — use `waitForTimeout(1500-2000)` between actions so the viewer can follow
 - **Show, don't tell** — The video speaks for itself
 - **Clean state** — Start from a clean/default state, not mid-workflow
-- **No errors** — If the demo hits an error, fix it and re-record
-- **Commit the video** — It's part of the deliverable
-
-```bash
-git add artifacts/demos/YYYY-MM-DD-<card-slug>.mp4
-git commit -m "demo: add video walkthrough for <card-title>"
-```
+- **No errors** — If the demo hits an error, fix the script and re-record
+- **File format** — `.webm` (Playwright's default, plays in all modern browsers)
