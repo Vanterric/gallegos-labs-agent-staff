@@ -71,6 +71,16 @@ projects:
     startup: always
     current_focus: ""
 
+  presidential-tasks:
+    name: Presidential Tasks
+    path: .
+    description: "Manual tasks that require the President's direct action — account setup, vendor approvals, taste-driven work"
+    status: active
+    priority: high
+    stack: []
+    kanban_board: "Presidential Tasks"
+    current_focus: "MongoDB Atlas setup for Knowledge Base"
+
 kanban:
   api_url: "https://gallegos-kanban-api.onrender.com"
   local_api_url: "http://localhost:3002"
