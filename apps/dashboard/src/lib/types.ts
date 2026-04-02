@@ -54,3 +54,33 @@ export interface ChatMessage {
 export interface ChatHistoryResponse {
   messages: ChatMessage[];
 }
+
+export interface InsightProductOption {
+  key: string;
+  name: string;
+}
+
+export interface InsightOptionsResponse {
+  products: InsightProductOption[];
+  categories: Array<"pain-point" | "feature-request" | "competitor-mention" | "sentiment">;
+}
+
+export interface CreateInsightRequest {
+  itemId: string;
+  selectedText: string;
+  product: string;
+  category: "pain-point" | "feature-request" | "competitor-mention" | "sentiment";
+  comment: string;
+  sourceDocumentTitle: string;
+  sourceDocumentPath?: string;
+  sourceDocumentContent?: string | null;
+  fallbackSource?: string;
+}
+
+export interface CreateInsightResponse {
+  ok: true;
+  findingId: string;
+  filePath: string;
+  commitHash: string;
+  pushed: true;
+}

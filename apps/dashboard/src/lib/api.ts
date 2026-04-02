@@ -1,7 +1,10 @@
 import type {
   ChatHistoryResponse,
+  CreateInsightRequest,
+  CreateInsightResponse,
   DismissResponse,
   FileContentResponse,
+  InsightOptionsResponse,
   PendingResponse,
 } from "./types";
 
@@ -48,6 +51,40 @@ export async function fetchChatHistory(): Promise<ChatHistoryResponse> {
   const res = await fetch("/api/chat/history");
   if (!res.ok) {
     throw new Error(`Failed to fetch chat history: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function fetchInsightOptions(): Promise<InsightOptionsResponse> {
+  const res = await fetch("/api/insights/options");
+  if (!res.ok) {
+    throw new Error(`Failed to fetch insight options: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function createInsight(payload: CreateInsightRequest): Promise<CreateInsightResponse> {
+  const res = await fetch("/api/insights/create", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let message = `Failed to create insight: ${res.status}`;
+    try {
+      const data = (await res.json()) as { error?: string };
+      if (data.error) {
+        message = data.error;
+      }
+    } catch {
+      // ignore json parse failures
+    }
+    throw new Error(message);
   }
 
   return res.json();
