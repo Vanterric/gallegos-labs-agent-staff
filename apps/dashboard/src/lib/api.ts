@@ -1,4 +1,9 @@
-import type { DismissResponse, FileContentResponse, PendingResponse } from "./types";
+import type {
+  ChatHistoryResponse,
+  DismissResponse,
+  FileContentResponse,
+  PendingResponse,
+} from "./types";
 
 export async function fetchPending(): Promise<PendingResponse> {
   const res = await fetch("/api/pending");
@@ -34,6 +39,15 @@ export async function dismissPendingItem(itemId: string): Promise<DismissRespons
 
   if (!res.ok) {
     throw new Error(`Failed to dismiss inbox item: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function fetchChatHistory(): Promise<ChatHistoryResponse> {
+  const res = await fetch("/api/chat/history");
+  if (!res.ok) {
+    throw new Error(`Failed to fetch chat history: ${res.status}`);
   }
 
   return res.json();

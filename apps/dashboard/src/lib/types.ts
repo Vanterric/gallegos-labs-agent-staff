@@ -39,3 +39,18 @@ export interface DismissResponse {
   action: "moved" | "hidden";
   destinationPath?: string;
 }
+
+export type ChatChannel = "staff" | "openclaw";
+export type ChatAuthor = "president" | "staff" | "openclaw";
+
+export interface ChatMessage {
+  type: "message";
+  channel: ChatChannel;
+  from: ChatAuthor;
+  content: string;
+  timestamp: string;
+}
+
+export interface ChatHistoryResponse {
+  messages: ChatMessage[];
+}
