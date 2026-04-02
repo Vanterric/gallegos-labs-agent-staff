@@ -89,14 +89,12 @@ If the dashboard is up:
 
 1. Send a connection greeting:
 ```bash
-curl -s -X POST http://localhost:5174/api/chat/reply \
-  -H "Content-Type: application/json" \
-  -d '{"content":"Staff session connected. Standing by.","channel":"staff"}'
+bash scripts/chat-reply.sh "Staff session connected. Standing by."
 ```
 
 2. Start the chat watcher as a background task. This long-polls for president messages and exits when one arrives:
 ```bash
-SINCE="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" && while true; do RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" "http://localhost:5174/api/chat/wait?since=$SINCE&timeout=60"); HTTP_STATUS=$(echo "$RESPONSE" | tail -1 | sed 's/HTTP_STATUS://'); if [ "$HTTP_STATUS" = "200" ]; then echo "$RESPONSE" | sed '$d'; exit 0; fi; done
+bash scripts/chat-watcher.sh "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
 ```
 Use the Bash tool with `run_in_background: true`.
 
@@ -150,15 +148,13 @@ When the dashboard chat watcher background task completes (you receive a task no
 3. Respond to the President's message
 4. Send your reply AND restart the watcher in a single step — always call both together:
 ```bash
-curl -s -X POST http://localhost:5174/api/chat/reply \
-  -H "Content-Type: application/json" \
-  -d '{"content":"{{your_response}}","channel":"staff"}'
+bash scripts/chat-reply.sh "{{your_response}}"
 ```
 Then immediately (in the same response, as a parallel Bash call with `run_in_background: true`):
 ```bash
-SINCE="{{latest_message_timestamp}}" && while true; do RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" "http://localhost:5174/api/chat/wait?since=$SINCE&timeout=60"); HTTP_STATUS=$(echo "$RESPONSE" | tail -1 | sed 's/HTTP_STATUS://'); if [ "$HTTP_STATUS" = "200" ]; then echo "$RESPONSE" | sed '$d'; exit 0; fi; done
+bash scripts/chat-watcher.sh "{{latest_message_timestamp}}"
 ```
-The reply and watcher restart are one atomic action — never reply without restarting the watcher.
+Both scripts are in the Claude Code allow list — no approval prompts. The reply and watcher restart are one atomic action — never reply without restarting the watcher.
 
 ### Keeping Kanban Updated
 - All work should be reflected on the kanban board

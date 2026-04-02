@@ -1,5 +1,11 @@
 {
-  "skills": {
-    "directories": ["skills"]
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch",
+      "Bash(curl:*)",
+      "Bash(bash scripts/chat-watcher.sh*)",
+      "Bash(bash scripts/chat-reply.sh*)"
+    ]
   }
 }
