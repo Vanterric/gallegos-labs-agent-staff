@@ -23,9 +23,26 @@ const CHAT_INBOX_FILE = path.join(CHAT_RELAY_DIR, "inbox.jsonl");
 const CHAT_OUTBOX_FILE = path.join(CHAT_RELAY_DIR, "outbox.jsonl");
 const OPENCLAW_LOG_DIR = path.join(ROOT, ".openclaw-log");
 const OPENCLAW_LOG_FILE = path.join(OPENCLAW_LOG_DIR, "messages.jsonl");
+const PLAYGROUND_DIR = path.join(ROOT, ".playground");
+const PLAYGROUND_HTML_FILE = path.join(PLAYGROUND_DIR, "current.html");
+const PLAYGROUND_META_FILE = path.join(PLAYGROUND_DIR, "meta.json");
+const PLAYGROUND_EVENTS_FILE = path.join(PLAYGROUND_DIR, "events.json");
 const PRODUCTS_CONFIG = path.join(RESEARCH_REPO, "config", "products.yaml");
 const FINDINGS_RAW_DIR = path.join(RESEARCH_REPO, "findings", "raw");
 const INSIGHT_CATEGORIES = ["pain-point", "feature-request", "competitor-mention", "sentiment"] as const;
+
+interface DashboardPaths {
+  rootDir: string;
+  openClawLogFile: string;
+  playgroundHtmlFile: string;
+  playgroundMetaFile: string;
+  playgroundEventsFile: string;
+}
+
+interface DashboardAppOptions {
+  rootDir?: string;
+  disableVite?: boolean;
+}
 
 interface PendingItem {
   id: string;
@@ -420,7 +437,13 @@ async function readJsonLines<T>(filePath: string): Promise<T[]> {
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean)
-      .map((line) => JSON.parse(line) as T);
+      .flatMap((line) => {
+        try {
+          return [JSON.parse(line) as T];
+        } catch {
+          return [];
+        }
+      });
   } catch {
     return [];
   }
@@ -436,7 +459,7 @@ function createChatMessage(from: ChatAuthor, channel: ChatChannel, content: stri
   };
 }
 
-function watchJsonlFile(filePath: string, onEntries: (entries: ChatMessage[]) => void) {
+function watchJsonlFile<T>(filePath: string, onEntries: (entries: T[]) => void) {
   let lastLineCount = 0;
 
   const readNewEntries = async () => {
@@ -446,7 +469,7 @@ function watchJsonlFile(filePath: string, onEntries: (entries: ChatMessage[]) =>
       if (lines.length <= lastLineCount) return;
       const newLines = lines.slice(lastLineCount);
       lastLineCount = lines.length;
-      const entries = newLines.map((line) => JSON.parse(line) as ChatMessage);
+      const entries = newLines.map((line) => JSON.parse(line) as T);
       onEntries(entries);
     } catch {
       // ignore watcher races
@@ -462,6 +485,174 @@ function watchJsonlFile(filePath: string, onEntries: (entries: ChatMessage[]) =>
   });
 
   return watcher;
+}
+
+function resolveDashboardPaths(rootDir = ROOT): DashboardPaths {
+  const openClawLogDir = path.join(rootDir, ".openclaw-log");
+  const playgroundDir = path.join(rootDir, ".playground");
+
+  return {
+    rootDir,
+    openClawLogFile: path.join(openClawLogDir, "messages.jsonl"),
+    playgroundHtmlFile: path.join(playgroundDir, "current.html"),
+    playgroundMetaFile: path.join(playgroundDir, "meta.json"),
+    playgroundEventsFile: path.join(playgroundDir, "events.json"),
+  };
+}
+
+async function ensureDashboardPaths(paths: DashboardPaths) {
+  await Promise.all([
+    fs.mkdir(path.dirname(paths.openClawLogFile), { recursive: true }),
+    fs.mkdir(path.dirname(paths.playgroundHtmlFile), { recursive: true }),
+  ]);
+}
+
+function normalizeOpenClawLogEntry(entry: Partial<OpenClawLogEntry> | null | undefined): OpenClawLogEntry | null {
+  if (!entry || typeof entry.timestamp !== "string" || typeof entry.direction !== "string" || typeof entry.message !== "string") {
+    return null;
+  }
+
+  return {
+    timestamp: entry.timestamp,
+    direction: entry.direction,
+    message: entry.message,
+    response: typeof entry.response === "string" ? entry.response : undefined,
+  };
+}
+
+async function readOpenClawLog(paths = resolveDashboardPaths()): Promise<OpenClawLogEntry[]> {
+  const entries = await readJsonLines<OpenClawLogEntry>(paths.openClawLogFile);
+  return entries.map(normalizeOpenClawLogEntry).filter((entry): entry is OpenClawLogEntry => Boolean(entry));
+}
+
+async function readPlaygroundPayload(paths = resolveDashboardPaths()) {
+  const [html, rawMeta] = await Promise.all([
+    fs.readFile(paths.playgroundHtmlFile, 'utf8').catch(() => ''),
+    fs.readFile(paths.playgroundMetaFile, 'utf8').catch(() => ''),
+  ]);
+
+  let meta: { filename?: string; updatedAt?: string } = {};
+  if (rawMeta) {
+    try {
+      meta = JSON.parse(rawMeta) as { filename?: string; updatedAt?: string };
+    } catch {
+      meta = {};
+    }
+  }
+
+  return {
+    html,
+    filename: meta.filename,
+    updatedAt: meta.updatedAt,
+  };
+}
+
+async function writePlaygroundPayload(html: string, filename: string | undefined, paths = resolveDashboardPaths()) {
+  await ensureDashboardPaths(paths);
+  const meta = {
+    filename,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await Promise.all([
+    fs.writeFile(paths.playgroundHtmlFile, html, 'utf8'),
+    fs.writeFile(paths.playgroundMetaFile, JSON.stringify(meta, null, 2), 'utf8'),
+    fs.writeFile(paths.playgroundEventsFile, '[]\n', 'utf8'),
+  ]);
+
+  return meta;
+}
+
+async function readPlaygroundEvents(paths = resolveDashboardPaths()): Promise<PlaygroundEvent[]> {
+  try {
+    const raw = await fs.readFile(paths.playgroundEventsFile, 'utf8');
+    const parsed = JSON.parse(raw) as PlaygroundEvent[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function appendPlaygroundEvent(event: PlaygroundEvent, paths = resolveDashboardPaths()) {
+  const events = await readPlaygroundEvents(paths);
+  events.push(event);
+  await ensureDashboardPaths(paths);
+  await fs.writeFile(paths.playgroundEventsFile, JSON.stringify(events, null, 2), 'utf8');
+}
+
+async function attachOpenClawPlaygroundRoutes(app: express.Express, paths = resolveDashboardPaths()) {
+  await ensureDashboardPaths(paths);
+
+  app.get('/api/openclaw/log', async (_req, res) => {
+    const entries = await readOpenClawLog(paths);
+    res.json({ entries });
+  });
+
+  app.get('/api/openclaw/log/stream', async (req, res) => {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+    });
+
+    const writeEvent = (payload: unknown) => {
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    };
+
+    writeEvent({ entries: await readOpenClawLog(paths) });
+    const heartbeat = setInterval(() => {
+      res.write(': keepalive\n\n');
+    }, 15000);
+
+    const watcher = watchJsonlFile<OpenClawLogEntry>(paths.openClawLogFile, (entries) => {
+      for (const entry of entries.map(normalizeOpenClawLogEntry).filter((value): value is OpenClawLogEntry => Boolean(value))) {
+        writeEvent({ entry });
+      }
+    });
+
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      watcher.close();
+      res.end();
+    });
+  });
+
+  app.get('/api/playground', async (_req, res) => {
+    res.json(await readPlaygroundPayload(paths));
+  });
+
+  app.post('/api/playground', async (req, res) => {
+    const html = typeof req.body?.html === 'string' ? req.body.html : '';
+    const filename = typeof req.body?.filename === 'string' ? req.body.filename : undefined;
+    const meta = await writePlaygroundPayload(html, filename, paths);
+    res.json({ ok: true, html, filename: meta.filename, updatedAt: meta.updatedAt, eventsCleared: true });
+  });
+
+  app.get('/api/playground/events', async (_req, res) => {
+    res.json({ events: await readPlaygroundEvents(paths) });
+  });
+
+  app.post('/api/playground/events', async (req, res) => {
+    const payload: PlaygroundEvent = {
+      type: typeof req.body?.type === 'string' ? req.body.type : 'click',
+      choice: typeof req.body?.choice === 'string' ? req.body.choice : undefined,
+      text: typeof req.body?.text === 'string' ? req.body.text : undefined,
+      timestamp: typeof req.body?.timestamp === 'number' ? req.body.timestamp : Date.now(),
+    };
+
+    await appendPlaygroundEvent(payload, paths);
+    res.json({ ok: true });
+  });
+}
+
+export async function createDashboardApp(options: DashboardAppOptions = {}) {
+  const app = express();
+  app.use(express.json({ limit: '2mb' }));
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok' });
+  });
+  await attachOpenClawPlaygroundRoutes(app, resolveDashboardPaths(options.rootDir));
+  return app;
 }
 
 async function nextFindingId(date: string) {
@@ -545,6 +736,8 @@ async function start() {
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });
   });
+
+  await attachOpenClawPlaygroundRoutes(app);
 
   app.get("/api/pending", async (_req, res) => {
     const items = await listPendingItems();
@@ -819,4 +1012,6 @@ async function start() {
   });
 }
 
-start();
+if (!process.env.VITEST) {
+  void start();
+}

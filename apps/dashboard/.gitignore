@@ -2,4 +2,5 @@ node_modules
 dist
 .chat-relay/
 .openclaw-log/
+.playground/
 *.local
