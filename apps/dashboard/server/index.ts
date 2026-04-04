@@ -952,6 +952,34 @@ async function start() {
     }
   });
 
+  // --- Viewer push/pull endpoints ---
+  let viewerState: { title: string; content: string; timestamp: string } | null = null;
+
+  app.post("/api/viewer/show", async (req, res) => {
+    try {
+      const { title, content, filePath } = req.body as { title?: string; content?: string; filePath?: string };
+      if (!title) return res.status(400).json({ error: "title is required" });
+
+      let markdown = content ?? "";
+      if (!content && filePath) {
+        try {
+          markdown = await fs.readFile(filePath, "utf8");
+        } catch {
+          return res.status(400).json({ error: `Could not read file: ${filePath}` });
+        }
+      }
+
+      viewerState = { title, content: markdown, timestamp: new Date().toISOString() };
+      return res.json({ ok: true });
+    } catch (error) {
+      return res.status(500).json({ error: error instanceof Error ? error.message : "Failed to push to viewer" });
+    }
+  });
+
+  app.get("/api/viewer/current", (_req, res) => {
+    res.json(viewerState ?? { title: null, content: null, timestamp: null });
+  });
+
   const vite = await createViteServer({
     server: { middlewareMode: true },
     appType: "spa",

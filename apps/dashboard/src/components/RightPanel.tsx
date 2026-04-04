@@ -3,6 +3,7 @@ import VisualPlayground from "./VisualPlayground";
 import type { PendingItem, RightPanelTab } from "../lib/types";
 
 interface RightPanelProps {
+  width: number;
   activeTab: RightPanelTab;
   onTabChange: (tab: RightPanelTab) => void;
   selectedItem: PendingItem | null;
@@ -13,6 +14,7 @@ interface RightPanelProps {
 }
 
 export default function RightPanel({
+  width,
   activeTab,
   onTabChange,
   selectedItem,
@@ -22,7 +24,7 @@ export default function RightPanel({
   onDismissed,
 }: RightPanelProps) {
   return (
-    <aside className="flex h-full w-96 shrink-0 flex-col border-l border-nimbus-border bg-nimbus-surface-elevated">
+    <aside style={{ width }} className="flex h-full shrink-0 flex-col bg-nimbus-surface-elevated">
       <div className="flex border-b border-nimbus-border">
         <button
           onClick={() => onTabChange("md-viewer")}

@@ -106,6 +106,13 @@ export interface CreateInsightRequest {
   fallbackSource?: string;
 }
 
+export interface ViewerPushMessage {
+  type: "viewer-push";
+  title: string;
+  content: string;
+  timestamp: string;
+}
+
 export interface CreateInsightResponse {
   ok: true;
   findingId: string;

@@ -221,6 +221,19 @@ export default function MarkdownViewer({ item, content, isLoading, onApproved, o
   };
 
   if (!item) {
+    const storedTitle = localStorage.getItem("viewer-push-title");
+    const storedContent = localStorage.getItem("viewer-push-content");
+    if (storedTitle && storedContent) {
+      const storedParsed = parseFrontmatter(storedContent);
+      return (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-nimbus-text-primary">{storedTitle}</h2>
+          <article className="prose prose-invert prose-sm max-w-none select-text prose-headings:text-nimbus-text-primary prose-headings:font-semibold prose-h1:text-xl prose-h1:border-b prose-h1:border-nimbus-border prose-h1:pb-3 prose-h1:mb-4 prose-h2:text-lg prose-h2:mt-6 prose-h2:mb-2 prose-h3:text-base prose-h3:text-nimbus-accent-cyan prose-p:text-nimbus-text-muted prose-p:leading-relaxed prose-strong:text-nimbus-text-primary prose-code:text-nimbus-accent-cyan prose-code:bg-nimbus-bg-secondary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-nimbus-bg-secondary prose-pre:border prose-pre:border-nimbus-border prose-pre:rounded-card prose-a:text-nimbus-accent prose-a:no-underline hover:prose-a:underline prose-li:text-nimbus-text-muted prose-li:marker:text-nimbus-accent prose-hr:border-nimbus-border prose-blockquote:border-nimbus-accent prose-blockquote:text-nimbus-text-subtle prose-th:text-nimbus-text-primary prose-td:text-nimbus-text-muted">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{storedParsed.body || storedContent}</ReactMarkdown>
+          </article>
+        </div>
+      );
+    }
     return <p className="text-sm text-nimbus-text-muted">Select an item to view its markdown content.</p>;
   }
 
@@ -345,7 +358,7 @@ export default function MarkdownViewer({ item, content, isLoading, onApproved, o
 
       <article
         ref={articleRef}
-        className="prose prose-invert prose-sm max-w-none select-text prose-headings:text-nimbus-text-primary prose-p:text-nimbus-text-muted prose-strong:text-nimbus-text-primary prose-code:text-nimbus-accent-cyan prose-a:text-nimbus-accent"
+        className="prose prose-invert prose-sm max-w-none select-text prose-headings:text-nimbus-text-primary prose-headings:font-semibold prose-h1:text-xl prose-h1:border-b prose-h1:border-nimbus-border prose-h1:pb-3 prose-h1:mb-4 prose-h2:text-lg prose-h2:mt-6 prose-h2:mb-2 prose-h3:text-base prose-h3:text-nimbus-accent-cyan prose-p:text-nimbus-text-muted prose-p:leading-relaxed prose-strong:text-nimbus-text-primary prose-code:text-nimbus-accent-cyan prose-code:bg-nimbus-bg-secondary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-nimbus-bg-secondary prose-pre:border prose-pre:border-nimbus-border prose-pre:rounded-card prose-a:text-nimbus-accent prose-a:no-underline hover:prose-a:underline prose-li:text-nimbus-text-muted prose-li:marker:text-nimbus-accent prose-hr:border-nimbus-border prose-blockquote:border-nimbus-accent prose-blockquote:text-nimbus-text-subtle prose-th:text-nimbus-text-primary prose-td:text-nimbus-text-muted"
       >
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{parsed.body || content || "(empty)"}</ReactMarkdown>
       </article>
