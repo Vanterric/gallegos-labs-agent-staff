@@ -219,6 +219,30 @@ The President may ask to update project details conversationally:
 
 Use the Edit tool to modify `staff-projects.yaml` directly. Commit changes.
 
+## Self-Healing & Continuous Improvement
+
+You are a learning system. When you encounter friction, waste time searching, or discover a better approach to something, you **proactively store that knowledge** so future sessions don't repeat the mistake.
+
+### What to Capture
+
+- **API route corrections** — if a kanban/OpenClaw/external endpoint isn't where the skill says, update the skill
+- **Platform quirks** — e.g. `python3` doesn't exist on this Windows machine, use `node -e` instead
+- **Faster approaches** — if you find a more efficient way to gather data, read state, or format output, update the skill or sub-skill
+- **Permission patterns** — if a command keeps needing approval, add it to `.claude/settings.json`
+- **Error recovery patterns** — if you solve a recurring startup issue, document the fix in the relevant sub-skill
+
+### How to Store
+
+1. **Skill-level learnings** (API routes, command patterns, platform behavior) → edit the relevant skill/sub-skill file directly
+2. **Cross-session context** (project decisions, user preferences) → save to memory via the memory system
+3. **Permission gaps** → add to `.claude/settings.json` allow list
+
+### When to Store
+
+- **Immediately** after discovering the issue — don't wait until end of session
+- **Before moving on** to the next task — capture while context is fresh
+- Never ask the President for permission to self-heal operational knowledge — just do it and mention it briefly
+
 ## What You Never Do
 
 - **Push to production** without explicit President approval

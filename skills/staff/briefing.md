@@ -53,92 +53,127 @@ Pull queued messages from the OpenClaw Mac mini. Follow `skills/staff/openclaw.m
    - `status:report` → summarize under "Agent Results"
 8. After processing, tell OpenClaw to clear the queue
 
-## Briefing Format
+## Briefing Output
 
-Present the briefing in this exact structure:
+The briefing is rendered as a markdown document and pushed to the President's Dashboard MD Viewer — NOT dumped into the terminal. The terminal should only show a short status line like:
+
+```
+Briefing ready — pushed to your dashboard. [date]
+```
+
+### How to Push
+
+Write the briefing to a temp file, then push it:
+
+```bash
+# Write briefing markdown to a temp file
+cat > /tmp/staff-briefing.md << 'EOF'
+{{briefing_content}}
+EOF
+
+# Push to dashboard viewer
+bash scripts/viewer-show.sh "Morning Briefing — {{date}}" /tmp/staff-briefing.md
+```
+
+### Briefing Markdown Template
+
+The briefing should be a clean, scannable document with clear visual hierarchy. Use horizontal rules, tables, and whitespace generously. The President reads this before coffee.
+
+```markdown
+# Morning Briefing — {{date}}
+
+> {{one-line lab pulse: e.g. "3 projects active, 1 card in review, OpenClaw online"}}
+
+---
+
+## Decisions Needed
+
+[This section goes FIRST — the most important thing. If nothing needs a decision, say so briefly.]
+
+| # | Decision | Context | Urgency |
+|---|----------|---------|---------|
+| 1 | [what needs deciding] | [why it's blocked] | [high/medium/low] |
 
 ---
 
-# Good morning, President. Here's your briefing.
+## Project Pulse
 
-## 1. Project Status
+[One table for quick scanning. Only active projects.]
 
-For each active project:
+| Project | Priority | Focus | Last Commit | Dirty? | Board Summary |
+|---------|----------|-------|-------------|--------|---------------|
+| Nimbus | high | [focus] | [commit msg] | [yes/no] | [e.g. "1 review, 3 backlog"] |
+| Agent Staff | high | [focus] | [commit msg] | [yes/no] | [summary] |
+| ... | | | | | |
 
-### [Project Name] — [priority] priority
-**Focus:** [current_focus from manifest, or "No focus set"]
-**Last activity:** [most recent commit message and date]
-**Branches:** [list of branches, highlight any that aren't main/master]
-**Working tree:** [clean / N uncommitted changes]
-**Board:** [N cards in Backlog, N in To Do, N in Progress, N in Review, N in Done]
+[For any project with notable detail — branches to clean, cards stuck, etc. — add a short callout below the table:]
 
-## 2. OpenClaw Status
-
-**Status:** [online/offline]
-**Current task:** [what it's working on, or "idle"]
-**Pipeline:** [N cards completed since last briefing, N in Review awaiting approval]
-
-[If there are queued messages from OpenClaw, summarize each:]
-- **[review:ready]** [Card title] — ready for review. Branch: [x], PR: [link], Tests: [x passed], Demo: [link]
-- **[blocked]** [Card title] — [blocker summary]
-- **[question]** [Card title] — [question]
-
-[If no queue messages:]
-No pending messages from OpenClaw.
-
-## 3. Agent Results
-
-[If any background agents completed work during this session, summarize:]
-- **[Task name]**: [outcome — success/failure, what was done, what needs review]
-
-[If no agents have run yet:]
-No agent activity yet this session.
-
-## 4. User Feedback
-
-[If new feedback was returned by `bash scripts/check-feedback.sh`:]
-
-| # | Category | Title | Summary | From | Date |
-|---|----------|-------|---------|------|------|
-| 1 | [category] | [title] | [first ~100 chars of content] | [userEmail or "anonymous"] | [date] |
-
-[If no new feedback:]
-No new user feedback since last session.
-
-## 5. Research Context
-
-[If any research has been conducted, summarize key findings relevant to current work]
-
-[If no research yet:]
-No active research briefs.
-
-## 6. Recommended Next Actions
-
-Based on project priorities and current state, I recommend:
-
-1. **[Action]** — [reasoning, 1 sentence]
-2. **[Action]** — [reasoning, 1 sentence]
-3. **[Action]** — [reasoning, 1 sentence]
-
-Prioritize based on:
-- High-priority projects with empty `current_focus` need direction
-- Cards stuck in "In Progress" or "Review" need attention
-- Projects with dirty working trees may have unfinished work
-
-## 7. Decisions Needed
-
-[List anything that requires President approval to unblock:]
-- [Decision needed] — [context]
-
-[If nothing is blocked:]
-No blockers — ready to execute on your direction.
+> **Nimbus** — 22 branches, several stale `speed-opt/*` experiments. Cleanup candidate.
 
 ---
+
+## OpenClaw
+
+| Field | Status |
+|-------|--------|
+| Gateway | [online/offline] |
+| Current Task | [task or "idle"] |
+| Queue | [N messages / empty] |
+
+[If there are queued messages, list them:]
+
+| Type | Card | Detail |
+|------|------|--------|
+| review:ready | [title] | PR: [link], branch: [x] |
+| blocked | [title] | [blocker] |
+
+---
+
+## Agent Results
+
+[If any agents completed work:]
+
+| Agent | Task | Outcome |
+|-------|------|---------|
+| [name] | [what] | [result] |
+
+[If none:]
+*No agent activity this session.*
+
+---
+
+## User Feedback
+
+[If new feedback exists, show as a table. If not:]
+*No new feedback since last session.*
+
+---
+
+## Research
+
+[Brief summary or "No active briefs."]
+
+---
+
+## Recommended Actions
+
+| # | Action | Why |
+|---|--------|-----|
+| 1 | [action] | [one sentence] |
+| 2 | [action] | [one sentence] |
+| 3 | [action] | [one sentence] |
+
+---
+
+*What would you like to focus on today?*
+```
 
 ## Guidelines
 
-- Keep each section concise — the President has limited time
-- Lead with what matters most — don't bury important items
-- If a project has no recent activity and low priority, mention it briefly rather than giving it a full section
+- **Push to MD Viewer, not terminal** — the briefing is a document, not a chat message
+- Keep each section tight — the President has ~2 hours and reads this pre-coffee
+- **Decisions first** — don't bury blockers at the bottom
+- Use tables for anything with 2+ items — they scan faster than bullet lists
+- If a project has no recent activity and low priority, collapse it to one row in the table
 - Recommendations should be specific and actionable, not vague
-- Always end with a prompt for direction: "What would you like to focus on today?"
+- The closing prompt ("What would you like to focus on today?") goes in the terminal, not the briefing

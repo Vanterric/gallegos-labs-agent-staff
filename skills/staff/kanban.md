@@ -100,6 +100,17 @@ curl -s -X POST {{api_url}}/api/columns \
 
 Store the mapping of project keys (from manifest) to kanban project IDs so other skills can reference them without re-fetching.
 
+## Operational Notes
+
+These are self-healed learnings from past sessions. Keep them updated.
+
+- **No `python3` on this Windows machine** — use `node -e` for inline JSON parsing, not `python3 -c`
+- **Kanban API uses `/api/projects` not `/api/boards`** — the entity is "project", not "board"
+- **No GET `/api/columns`** — columns are nested inside the board response, not a standalone endpoint
+- **Render cold starts** — the production kanban API on Render can take 10-15s to wake from sleep. Use `--max-time 15` on the first health check and retry once before declaring it down
+- **Token in .env needs explicit export** — `source .env` doesn't export vars in bash; use `export VAR=val` or `export $(grep -v '^#' .env | xargs)`
+- **Board state endpoint** — `GET /api/projects/:id/board` returns everything (columns + cards). This is the only call needed for briefing board data — one call per project, not separate column fetches
+
 ## Reading Board State
 
 To get the full board for a project:

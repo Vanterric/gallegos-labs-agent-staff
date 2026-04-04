@@ -4,9 +4,23 @@
       "WebSearch",
       "WebFetch",
       "Bash(curl:*)",
-      "Bash(bash scripts/chat-watcher.sh*)",
-      "Bash(bash scripts/chat-reply.sh*)",
-      "Bash(bash scripts/check-feedback.sh*)"
+      "Bash(bash scripts/*)",
+      "Bash(cd *&& npm run dev*)",
+      "Bash(cd *&& npm run build*)",
+      "Bash(cd *&& npm test*)",
+      "Bash(cd *&& git *)",
+      "Bash(git *)",
+      "Bash(node -e *)",
+      "Bash(powershell -c \"Start-Process*)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(docker *)",
+      "Bash(gh pr *)",
+      "Bash(gh api *)",
+      "Bash(source *&& curl*)",
+      "Bash(export *&& curl*)",
+      "Bash(export *)",
+      "Bash(sleep *)"
     ]
   }
 }
