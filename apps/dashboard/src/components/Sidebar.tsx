@@ -4,6 +4,7 @@ import {
   Cog,
   MessageCircle,
   ScrollText,
+  Kanban,
 } from "lucide-react";
 import type { NavSection } from "../lib/types";
 
@@ -13,6 +14,7 @@ const navItems: { id: NavSection; icon: typeof Inbox; label: string }[] = [
   { id: "software", icon: Cog, label: "Software" },
   { id: "chat", icon: MessageCircle, label: "Chat" },
   { id: "openclaw", icon: ScrollText, label: "OpenClaw Log" },
+  { id: "kanban", icon: Kanban, label: "Kanban" },
 ];
 
 interface SidebarProps {

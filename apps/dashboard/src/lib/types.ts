@@ -3,7 +3,8 @@ export type NavSection =
   | "research"
   | "software"
   | "chat"
-  | "openclaw";
+  | "openclaw"
+  | "kanban";
 
 export type RightPanelTab = "md-viewer" | "visual-playground";
 

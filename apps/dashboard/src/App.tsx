@@ -5,6 +5,7 @@ import ResearchView from "./components/ResearchView";
 import SoftwareView from "./components/SoftwareView";
 import ChatView from "./components/ChatView";
 import OpenClawLogView from "./components/OpenClawLogView";
+import KanbanView from "./components/KanbanView";
 import RightPanel from "./components/RightPanel";
 import { usePending } from "./hooks/usePending";
 import { fetchFileContent } from "./lib/api";
@@ -15,6 +16,7 @@ const staticViews: Record<Exclude<NavSection, "inbox">, () => JSX.Element> = {
   software: SoftwareView,
   chat: ChatView,
   openclaw: OpenClawLogView,
+  kanban: KanbanView,
 };
 
 export default function App() {

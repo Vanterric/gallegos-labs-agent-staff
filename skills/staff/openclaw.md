@@ -49,10 +49,62 @@ The response is an OpenAI-compatible JSON object:
 
 Extract the response from `choices[0].message.content`.
 
+### Model Routing
+
+The `model` field in the request selects the **OpenClaw agent**, not the backend AI model. To control which OpenAI model handles the request, use the `x-openclaw-model` header:
+
+```bash
+curl -s --max-time 500 http://192.168.1.173:18789/v1/chat/completions \
+  -H "Authorization: Bearer {{token}}" \
+  -H "Content-Type: application/json" \
+  -H "x-openclaw-model: {{provider/model}}" \
+  -d '{
+    "model": "openclaw",
+    "messages": [{"role": "user", "content": "{{message}}"}]
+  }'
+```
+
+**Available models (confirmed working as of 2026-04-03):**
+- `openai-codex/gpt-5.4` — default, Codex OAuth path
+- `openai/gpt-5.4` — direct API path (enabled after config update)
+
+**Not yet enabled (need config + possible API keys):**
+- `openai-codex/gpt-5.3-codex-spark` — experimental codex
+- Cheap tiers (gpt-5-nano, o4-mini) — not in current gateway install
+
+**How it works:**
+- `model` field → selects OpenClaw **agent** (always use `openclaw`)
+- `x-openclaw-model` header → selects **backend provider/model**
+- Models must be in `agents.defaults.models` allowlist in `~/.openclaw/openclaw.json`
+- To add models: ask OpenClaw to run `openclaw config set 'agents.defaults.models["provider/model"]' '{}' --strict-json` then restart gateway
+
+### CRITICAL: Session Separation and Agent Dispatch
+
+**Never ask the conversation session to do heavy work directly.** The gateway blocks until OpenClaw finishes — long tasks will time out and you'll lose the response.
+
+Instead, use **two session patterns:**
+
+1. **Conversation session** (`"model": "openclaw"`) — for status checks, questions, quick reads. These return fast.
+2. **Work dispatch** — tell OpenClaw to **spin off a sub-agent** for the actual work. The conversation session stays responsive while the agent works independently.
+
+**How to dispatch work through OpenClaw:**
+```
+Tell OpenClaw: "Spin off an agent to do X. Don't do it yourself in this session."
+```
+
+OpenClaw can spawn isolated agents that run in the background on the Mac. The conversation session returns immediately with confirmation, and the agent works independently.
+
+**What goes wrong if you skip this:**
+- Gateway blocks for the entire task duration
+- 500s timeout fires → empty response
+- You don't know if the work happened or not
+- You waste cycles retrying
+
+**Always use `run_in_background: true`** on the Bash tool for ALL OpenClaw requests, even conversation. And always use `--max-time 500`.
+
 ### Important Notes
 
 - **Do NOT include `"stream": true`** — use synchronous requests only
-- **Set a generous timeout** (`--max-time 120`) — OpenClaw may take time to execute tasks
 - **One message at a time** — don't send concurrent requests to the same session
 - If the request times out or connection is refused, OpenClaw may be down. Report to the President.
 
